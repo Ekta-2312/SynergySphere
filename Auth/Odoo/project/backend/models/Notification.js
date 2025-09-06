@@ -63,14 +63,48 @@ const NotificationSchema = new mongoose.Schema({
   createdAt: {
     type: Date,
     default: Date.now
+  },
+  isDeleted: {
+    type: Boolean,
+    default: false,
+    index: true
+  },
+  deletedAt: {
+    type: Date
   }
 });
+
+// Indexes for frequently queried fields
+NotificationSchema.index({ recipient: 1, isRead: 1 });
+NotificationSchema.index({ recipient: 1, createdAt: -1 });
+NotificationSchema.index({ recipient: 1, type: 1 });
+NotificationSchema.index({ isRead: 1 });
+NotificationSchema.index({ createdAt: -1 });
 
 // Mark as read
 NotificationSchema.methods.markAsRead = function () {
   this.isRead = true;
   this.readAt = Date.now();
   return this.save();
+};
+
+// Soft delete method
+NotificationSchema.methods.softDelete = function() {
+  this.isDeleted = true;
+  this.deletedAt = Date.now();
+  return this.save();
+};
+
+// Restore method
+NotificationSchema.methods.restore = function() {
+  this.isDeleted = false;
+  this.deletedAt = undefined;
+  return this.save();
+};
+
+// Query helper to exclude deleted documents
+NotificationSchema.query.notDeleted = function() {
+  return this.where({ isDeleted: { $ne: true } });
 };
 
 module.exports = mongoose.model('Notification', NotificationSchema);

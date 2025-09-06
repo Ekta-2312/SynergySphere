@@ -35,7 +35,6 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
     try {
       setLoading(true);
       const data = await api.get('/projects');
-      console.log('Fetched projects with stats:', data); // Debug log
       setProjects(data);
     } catch (error) {
       console.error('Error fetching projects:', error);

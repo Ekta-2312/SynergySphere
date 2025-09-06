@@ -24,7 +24,6 @@ export const Dashboard = () => {
     // Check if user is authenticated before making API calls
     const token = localStorage.getItem('accessToken');
     if (!token || !user) {
-      console.log('No token or user found, redirecting to login');
       logout();
       return;
     }
@@ -80,7 +79,6 @@ export const Dashboard = () => {
         onBack={handleBackToDashboard}
         onProjectUpdate={(updatedProject: Project) => {
           try {
-            console.log('Dashboard: Updating selected project with:', updatedProject);
             setSelectedProject(updatedProject);
           } catch (error) {
             console.error('Dashboard: Error updating selected project:', error);
