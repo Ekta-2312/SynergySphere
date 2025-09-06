@@ -81,7 +81,6 @@ Basic settings (e.g., notifications toggle)
 
 
 Team Members :
-
 Ekta Dodiya (Team Leader)
 Hasti Kalariya 
 Meghansh Thakker
