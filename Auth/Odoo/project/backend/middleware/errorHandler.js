@@ -14,7 +14,7 @@ class AppError extends Error {
     this.statusCode = statusCode;
     this.status = `${statusCode}`.startsWith('4') ? 'fail' : 'error';
     this.isOperational = isOperational;
-    
+
     Error.captureStackTrace(this, this.constructor);
   }
 }
@@ -22,7 +22,7 @@ class AppError extends Error {
 /**
  * Handle MongoDB cast errors (invalid ObjectId)
  */
-const handleCastErrorDB = (err) => {
+const handleCastErrorDB = err => {
   const message = `Invalid ${err.path}: ${err.value}`;
   return new AppError(message, 400);
 };
@@ -30,7 +30,7 @@ const handleCastErrorDB = (err) => {
 /**
  * Handle MongoDB duplicate field errors
  */
-const handleDuplicateFieldsDB = (err) => {
+const handleDuplicateFieldsDB = err => {
   const value = err.errmsg.match(/(["'])(\\?.)*?\1/)[0];
   const message = `Duplicate field value: ${value}. Please use another value!`;
   return new AppError(message, 400);
@@ -39,7 +39,7 @@ const handleDuplicateFieldsDB = (err) => {
 /**
  * Handle MongoDB validation errors
  */
-const handleValidationErrorDB = (err) => {
+const handleValidationErrorDB = err => {
   const errors = Object.values(err.errors).map(el => el.message);
   const message = `Invalid input data. ${errors.join('. ')}`;
   return new AppError(message, 400);
@@ -48,8 +48,7 @@ const handleValidationErrorDB = (err) => {
 /**
  * Handle JWT errors
  */
-const handleJWTError = () =>
-  new AppError('Invalid token. Please log in again!', 401);
+const handleJWTError = () => new AppError('Invalid token. Please log in again!', 401);
 
 const handleJWTExpiredError = () =>
   new AppError('Your token has expired! Please log in again.', 401);
@@ -90,7 +89,7 @@ const sendErrorProd = (err, res) => {
 /**
  * Input validation middleware
  */
-const validateInput = (schema) => {
+const validateInput = schema => {
   return (req, res, next) => {
     const { error } = schema.validate(req.body);
     if (error) {
@@ -129,7 +128,7 @@ const createRateLimit = (windowMs = 15 * 60 * 1000, max = 100, message = 'Too ma
 /**
  * Async error wrapper
  */
-const catchAsync = (fn) => {
+const catchAsync = fn => {
   return (req, res, next) => {
     fn(req, res, next).catch(next);
   };
@@ -157,11 +156,21 @@ const globalErrorHandler = (err, req, res, next) => {
     let error = { ...err };
     error.message = err.message;
 
-    if (error.name === 'CastError') error = handleCastErrorDB(error);
-    if (error.code === 11000) error = handleDuplicateFieldsDB(error);
-    if (error.name === 'ValidationError') error = handleValidationErrorDB(error);
-    if (error.name === 'JsonWebTokenError') error = handleJWTError();
-    if (error.name === 'TokenExpiredError') error = handleJWTExpiredError();
+    if (error.name === 'CastError') {
+      error = handleCastErrorDB(error);
+    }
+    if (error.code === 11000) {
+      error = handleDuplicateFieldsDB(error);
+    }
+    if (error.name === 'ValidationError') {
+      error = handleValidationErrorDB(error);
+    }
+    if (error.name === 'JsonWebTokenError') {
+      error = handleJWTError();
+    }
+    if (error.name === 'TokenExpiredError') {
+      error = handleJWTExpiredError();
+    }
 
     sendErrorProd(error, res);
   }
@@ -184,11 +193,11 @@ const securityHeaders = (req, res, next) => {
   res.setHeader('X-XSS-Protection', '1; mode=block');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
-  
+
   if (process.env.NODE_ENV === 'production') {
     res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
   }
-  
+
   next();
 };
 
@@ -197,7 +206,7 @@ const securityHeaders = (req, res, next) => {
  */
 const requestLogger = (req, res, next) => {
   const start = Date.now();
-  
+
   res.on('finish', () => {
     const duration = Date.now() - start;
     logger.info(`${req.method} ${req.path} ${res.statusCode} ${duration}ms`, {
@@ -210,7 +219,7 @@ const requestLogger = (req, res, next) => {
       userId: req.user?.id
     });
   });
-  
+
   next();
 };
 
@@ -219,7 +228,7 @@ const requestLogger = (req, res, next) => {
  */
 const sanitizeInput = (req, res, next) => {
   // Remove any null bytes
-  const sanitize = (obj) => {
+  const sanitize = obj => {
     for (const key in obj) {
       if (typeof obj[key] === 'string') {
         obj[key] = obj[key].replace(/\0/g, '');
@@ -228,11 +237,17 @@ const sanitizeInput = (req, res, next) => {
       }
     }
   };
-  
-  if (req.body) sanitize(req.body);
-  if (req.query) sanitize(req.query);
-  if (req.params) sanitize(req.params);
-  
+
+  if (req.body) {
+    sanitize(req.body);
+  }
+  if (req.query) {
+    sanitize(req.query);
+  }
+  if (req.params) {
+    sanitize(req.params);
+  }
+
   next();
 };
 

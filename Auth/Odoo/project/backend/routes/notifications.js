@@ -121,7 +121,8 @@ router.delete('/read/all', jwtAuth, async (req, res) => {
 // Create a new notification (internal use)
 router.post('/', jwtAuth, async (req, res) => {
   try {
-    const { recipient, type, title, message, relatedProject, relatedTask, relatedDiscussion } = req.body;
+    const { recipient, type, title, message, relatedProject, relatedTask, relatedDiscussion } =
+      req.body;
 
     if (!recipient || !type || !title || !message) {
       return res.status(400).json({ error: 'Recipient, type, title, and message are required' });
@@ -154,18 +155,18 @@ router.get('/type/:type', jwtAuth, async (req, res) => {
   try {
     const { type } = req.params;
     const validTypes = [
-      'task_assigned', 
-      'task_completed', 
-      'task_due_soon', 
+      'task_assigned',
+      'task_completed',
+      'task_due_soon',
       'task_status_changed',
       'task_priority_changed',
       'task_unassigned',
       'task_deleted',
-      'project_invitation', 
+      'project_invitation',
       'project_created',
       'project_updated',
       'project_deleted',
-      'discussion_reply', 
+      'discussion_reply',
       'new_discussion',
       'discussion_updated',
       'discussion_deleted',
@@ -180,7 +181,8 @@ router.get('/type/:type', jwtAuth, async (req, res) => {
     const notifications = await Notification.find({
       recipient: req.user._id,
       type: type
-    }).populate('relatedProject', 'title')
+    })
+      .populate('relatedProject', 'title')
       .populate('relatedTask', 'title')
       .populate('relatedDiscussion', 'title')
       .sort({ createdAt: -1 });

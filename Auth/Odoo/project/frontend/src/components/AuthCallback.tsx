@@ -22,11 +22,11 @@ export const AuthCallback: React.FC = () => {
       try {
         // Parse user data
         const user = JSON.parse(decodeURIComponent(userData));
-        
+
         // Store authentication data
         localStorage.setItem('accessToken', token);
         localStorage.setItem('user', JSON.stringify(user));
-        
+
         // Check if this was for an invitation
         if (invitation === 'accepted') {
           // Show success message and redirect to dashboard
@@ -47,14 +47,13 @@ export const AuthCallback: React.FC = () => {
   }, [navigate, searchParams]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="text-center">
+    <div className='min-h-screen flex items-center justify-center'>
+      <div className='text-center'>
         <LoadingSpinner />
-        <p className="mt-4 text-gray-600">
-          {searchParams.get('invitation') === 'accepted' 
-            ? 'Joining your project...' 
-            : 'Completing authentication...'
-          }
+        <p className='mt-4 text-gray-600'>
+          {searchParams.get('invitation') === 'accepted'
+            ? 'Joining your project...'
+            : 'Completing authentication...'}
         </p>
       </div>
     </div>

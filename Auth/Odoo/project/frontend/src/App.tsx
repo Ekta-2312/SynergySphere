@@ -11,21 +11,21 @@ import { ToastProvider } from './context/ToastContext';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated } = useAuth();
-  return isAuthenticated ? <>{children}</> : <Navigate to="/login" />;
+  return isAuthenticated ? <>{children}</> : <Navigate to='/login' />;
 };
 
 const App = () => {
   return (
     <ToastProvider>
       <Routes>
-        <Route path="/login" element={<AuthForm />} />
-        <Route path="/signup" element={<AuthForm />} />
-        <Route path="/verify" element={<Verify />} />
-        <Route path="/success" element={<Success />} />
-        <Route path="/auth/callback" element={<AuthCallback />} />
-        <Route path="/invite/:token" element={<InviteAccept />} />
+        <Route path='/login' element={<AuthForm />} />
+        <Route path='/signup' element={<AuthForm />} />
+        <Route path='/verify' element={<Verify />} />
+        <Route path='/success' element={<Success />} />
+        <Route path='/auth/callback' element={<AuthCallback />} />
+        <Route path='/invite/:token' element={<InviteAccept />} />
         <Route
-          path="/"
+          path='/'
           element={
             <ProtectedRoute>
               <Dashboard />
@@ -33,7 +33,7 @@ const App = () => {
           }
         />
         <Route
-          path="/dashboard"
+          path='/dashboard'
           element={
             <ProtectedRoute>
               <Dashboard />

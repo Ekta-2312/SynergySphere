@@ -6,10 +6,9 @@ const jwtAuth = require('../middleware/jwtAuth');
 // Get all users (for team member selection)
 router.get('/', jwtAuth, async (req, res) => {
   try {
-    const users = await Register.find(
-      { isVerified: true },
-      { name: 1, email: 1, _id: 1 }
-    ).sort({ name: 1 });
+    const users = await Register.find({ isVerified: true }, { name: 1, email: 1, _id: 1 }).sort({
+      name: 1
+    });
 
     res.json(users);
   } catch (error) {

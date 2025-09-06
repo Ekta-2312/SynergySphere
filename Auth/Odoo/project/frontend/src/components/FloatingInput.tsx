@@ -16,7 +16,7 @@ export const FloatingInput = forwardRef<HTMLInputElement, FloatingInputProps>(
     const inputType = isPassword && showPassword ? 'text' : type;
 
     return (
-      <div className="relative w-full">
+      <div className='relative w-full'>
         <input
           ref={ref}
           type={inputType}
@@ -35,29 +35,27 @@ export const FloatingInput = forwardRef<HTMLInputElement, FloatingInputProps>(
         />
 
         {icon && (
-          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
-            {icon}
-          </span>
+          <span className='absolute left-4 top-1/2 -translate-y-1/2 text-gray-400'>{icon}</span>
         )}
 
         {isPassword && (
           <button
-            type="button"
+            type='button'
             onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+            className='absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors'
           >
             {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
           </button>
         )}
 
-        <AnimatePresence mode="wait">
+        <AnimatePresence mode='wait'>
           {error && (
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.2 }}
-              className="flex items-center gap-2 mt-2 text-red-500 text-sm"
+              className='flex items-center gap-2 mt-2 text-red-500 text-sm'
             >
               <AlertCircle size={16} />
               <span>{error}</span>

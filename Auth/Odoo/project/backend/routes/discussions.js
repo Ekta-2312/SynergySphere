@@ -15,8 +15,9 @@ router.get('/project/:projectId', jwtAuth, async (req, res) => {
     }
 
     // Check if user has access to this project
-    const hasAccess = project.owner.toString() === req.user._id.toString() ||
-                     project.members.some(member => member.toString() === req.user._id.toString());
+    const hasAccess =
+      project.owner.toString() === req.user._id.toString() ||
+      project.members.some(member => member.toString() === req.user._id.toString());
 
     if (!hasAccess) {
       return res.status(403).json({ error: 'Access denied' });
@@ -48,8 +49,9 @@ router.get('/:id', jwtAuth, async (req, res) => {
 
     // Check if user has access to this discussion's project
     const project = discussion.project;
-    const hasAccess = project.owner.toString() === req.user._id.toString() ||
-                     project.members.some(member => member.toString() === req.user._id.toString());
+    const hasAccess =
+      project.owner.toString() === req.user._id.toString() ||
+      project.members.some(member => member.toString() === req.user._id.toString());
 
     if (!hasAccess) {
       return res.status(403).json({ error: 'Access denied' });
@@ -77,8 +79,9 @@ router.post('/', jwtAuth, async (req, res) => {
       return res.status(404).json({ error: 'Project not found' });
     }
 
-    const hasAccess = project.owner.toString() === req.user._id.toString() ||
-                     project.members.some(member => member.toString() === req.user._id.toString());
+    const hasAccess =
+      project.owner.toString() === req.user._id.toString() ||
+      project.members.some(member => member.toString() === req.user._id.toString());
 
     if (!hasAccess) {
       return res.status(403).json({ error: 'Access denied to this project' });
@@ -126,7 +129,10 @@ router.post('/', jwtAuth, async (req, res) => {
 // Update a discussion
 router.put('/:id', jwtAuth, async (req, res) => {
   try {
-    const discussion = await Discussion.findById(req.params.id).populate('project', 'owner members');
+    const discussion = await Discussion.findById(req.params.id).populate(
+      'project',
+      'owner members'
+    );
 
     if (!discussion) {
       return res.status(404).json({ error: 'Discussion not found' });
@@ -134,8 +140,9 @@ router.put('/:id', jwtAuth, async (req, res) => {
 
     // Check if user is the creator or has access to the project
     const project = discussion.project;
-    const canEdit = discussion.creator.toString() === req.user._id.toString() ||
-                   project.owner.toString() === req.user._id.toString();
+    const canEdit =
+      discussion.creator.toString() === req.user._id.toString() ||
+      project.owner.toString() === req.user._id.toString();
 
     if (!canEdit) {
       return res.status(403).json({ error: 'Access denied' });
@@ -143,9 +150,15 @@ router.put('/:id', jwtAuth, async (req, res) => {
 
     const { title, content, tags } = req.body;
 
-    if (title !== undefined) discussion.title = title;
-    if (content !== undefined) discussion.content = content;
-    if (tags !== undefined) discussion.tags = tags;
+    if (title !== undefined) {
+      discussion.title = title;
+    }
+    if (content !== undefined) {
+      discussion.content = content;
+    }
+    if (tags !== undefined) {
+      discussion.tags = tags;
+    }
 
     await discussion.save();
     await discussion.populate('creator', 'name email');
@@ -153,23 +166,27 @@ router.put('/:id', jwtAuth, async (req, res) => {
     // Send notifications for discussion updates
     try {
       const notificationPromises = [];
-      
+
       // Notify project members about discussion update
-      const members = project.members.filter(member => member.toString() !== req.user._id.toString());
+      const members = project.members.filter(
+        member => member.toString() !== req.user._id.toString()
+      );
       if (project.owner.toString() !== req.user._id.toString()) {
         members.push(project.owner);
       }
 
       members.forEach(memberId => {
-        notificationPromises.push(Notification.create({
-          recipient: memberId,
-          type: 'discussion_updated',
-          title: 'Discussion Updated',
-          message: `${req.user.name} updated the discussion "${discussion.title}"`,
-          relatedProject: project._id,
-          relatedDiscussion: discussion._id,
-          sender: req.user._id
-        }));
+        notificationPromises.push(
+          Notification.create({
+            recipient: memberId,
+            type: 'discussion_updated',
+            title: 'Discussion Updated',
+            message: `${req.user.name} updated the discussion "${discussion.title}"`,
+            relatedProject: project._id,
+            relatedDiscussion: discussion._id,
+            sender: req.user._id
+          })
+        );
       });
 
       await Promise.all(notificationPromises);
@@ -194,8 +211,9 @@ router.delete('/:id', jwtAuth, async (req, res) => {
     }
 
     // Check if user is the creator or project owner
-    const canDelete = discussion.creator.toString() === req.user._id.toString() ||
-                     discussion.project.owner.toString() === req.user._id.toString();
+    const canDelete =
+      discussion.creator.toString() === req.user._id.toString() ||
+      discussion.project.owner.toString() === req.user._id.toString();
 
     if (!canDelete) {
       return res.status(403).json({ error: 'Access denied' });
@@ -208,22 +226,26 @@ router.delete('/:id', jwtAuth, async (req, res) => {
     try {
       const notificationPromises = [];
       const project = discussion.project;
-      
+
       // Notify project members about discussion deletion
-      const members = project.members.filter(member => member.toString() !== req.user._id.toString());
+      const members = project.members.filter(
+        member => member.toString() !== req.user._id.toString()
+      );
       if (project.owner.toString() !== req.user._id.toString()) {
         members.push(project.owner);
       }
 
       members.forEach(memberId => {
-        notificationPromises.push(Notification.create({
-          recipient: memberId,
-          type: 'discussion_deleted',
-          title: 'Discussion Deleted',
-          message: `${req.user.name} deleted the discussion "${discussion.title}"`,
-          relatedProject: project._id,
-          sender: req.user._id
-        }));
+        notificationPromises.push(
+          Notification.create({
+            recipient: memberId,
+            type: 'discussion_deleted',
+            title: 'Discussion Deleted',
+            message: `${req.user.name} deleted the discussion "${discussion.title}"`,
+            relatedProject: project._id,
+            sender: req.user._id
+          })
+        );
       });
 
       await Promise.all(notificationPromises);
@@ -248,7 +270,10 @@ router.post('/:id/replies', jwtAuth, async (req, res) => {
       return res.status(400).json({ error: 'Content is required' });
     }
 
-    const discussion = await Discussion.findById(req.params.id).populate('project', 'owner members');
+    const discussion = await Discussion.findById(req.params.id).populate(
+      'project',
+      'owner members'
+    );
 
     if (!discussion) {
       return res.status(404).json({ error: 'Discussion not found' });
@@ -256,8 +281,9 @@ router.post('/:id/replies', jwtAuth, async (req, res) => {
 
     // Check if user has access to this discussion's project
     const project = discussion.project;
-    const hasAccess = project.owner.toString() === req.user._id.toString() ||
-                     project.members.some(member => member.toString() === req.user._id.toString());
+    const hasAccess =
+      project.owner.toString() === req.user._id.toString() ||
+      project.members.some(member => member.toString() === req.user._id.toString());
 
     if (!hasAccess) {
       return res.status(403).json({ error: 'Access denied' });
@@ -280,15 +306,17 @@ router.post('/:id/replies', jwtAuth, async (req, res) => {
 
       // Notify discussion creator if different from reply author
       if (discussion.creator.toString() !== req.user._id.toString()) {
-        notificationPromises.push(Notification.create({
-          recipient: discussion.creator,
-          type: 'discussion_reply',
-          title: 'New Reply',
-          message: `${req.user.name} replied to your discussion "${discussion.title}"`,
-          relatedProject: project._id,
-          relatedDiscussion: discussion._id,
-          sender: req.user._id
-        }));
+        notificationPromises.push(
+          Notification.create({
+            recipient: discussion.creator,
+            type: 'discussion_reply',
+            title: 'New Reply',
+            message: `${req.user.name} replied to your discussion "${discussion.title}"`,
+            relatedProject: project._id,
+            relatedDiscussion: discussion._id,
+            sender: req.user._id
+          })
+        );
         notifiedUsers.add(discussion.creator.toString());
       }
 
@@ -296,15 +324,17 @@ router.post('/:id/replies', jwtAuth, async (req, res) => {
       discussion.replies.forEach(existingReply => {
         const authorId = existingReply.author.toString();
         if (authorId !== req.user._id.toString() && !notifiedUsers.has(authorId)) {
-          notificationPromises.push(Notification.create({
-            recipient: authorId,
-            type: 'discussion_reply',
-            title: 'New Reply',
-            message: `${req.user.name} replied to the discussion "${discussion.title}"`,
-            relatedProject: project._id,
-            relatedDiscussion: discussion._id,
-            sender: req.user._id
-          }));
+          notificationPromises.push(
+            Notification.create({
+              recipient: authorId,
+              type: 'discussion_reply',
+              title: 'New Reply',
+              message: `${req.user.name} replied to the discussion "${discussion.title}"`,
+              relatedProject: project._id,
+              relatedDiscussion: discussion._id,
+              sender: req.user._id
+            })
+          );
           notifiedUsers.add(authorId);
         }
       });
@@ -376,8 +406,9 @@ router.delete('/:id/replies/:replyId', jwtAuth, async (req, res) => {
     }
 
     // Check if user is the author of the reply or project owner
-    const canDelete = reply.author.toString() === req.user._id.toString() ||
-                     discussion.project.owner.toString() === req.user._id.toString();
+    const canDelete =
+      reply.author.toString() === req.user._id.toString() ||
+      discussion.project.owner.toString() === req.user._id.toString();
 
     if (!canDelete) {
       return res.status(403).json({ error: 'Access denied' });
@@ -396,7 +427,10 @@ router.delete('/:id/replies/:replyId', jwtAuth, async (req, res) => {
 // Like/Unlike a discussion
 router.post('/:id/like', jwtAuth, async (req, res) => {
   try {
-    const discussion = await Discussion.findById(req.params.id).populate('project', 'owner members');
+    const discussion = await Discussion.findById(req.params.id).populate(
+      'project',
+      'owner members'
+    );
 
     if (!discussion) {
       return res.status(404).json({ error: 'Discussion not found' });
@@ -404,8 +438,9 @@ router.post('/:id/like', jwtAuth, async (req, res) => {
 
     // Check if user has access to this discussion's project
     const project = discussion.project;
-    const hasAccess = project.owner.toString() === req.user._id.toString() ||
-                     project.members.some(member => member.toString() === req.user._id.toString());
+    const hasAccess =
+      project.owner.toString() === req.user._id.toString() ||
+      project.members.some(member => member.toString() === req.user._id.toString());
 
     if (!hasAccess) {
       return res.status(403).json({ error: 'Access denied' });

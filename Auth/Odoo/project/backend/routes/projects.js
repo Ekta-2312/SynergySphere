@@ -6,26 +6,54 @@ const Notification = require('../models/Notification');
 const jwtAuth = require('../middleware/jwtAuth');
 const upload = require('../middleware/upload');
 
+// Helper function to calculate progress percentage based on task status
+const calculateProgressPercentage = tasks => {
+  if (tasks.length === 0) {
+    return 0;
+  }
+
+  let totalProgress = 0;
+
+  tasks.forEach(task => {
+    switch (task.status) {
+      case 'todo':
+        totalProgress += 0; // 0%
+        break;
+      case 'in-progress':
+        totalProgress += 25; // 25%
+        break;
+      case 'in-review':
+        totalProgress += 75; // 75%
+        break;
+      case 'done':
+        totalProgress += 100; // 100%
+        break;
+      default:
+        totalProgress += 0;
+    }
+  });
+
+  return Math.round(totalProgress / tasks.length);
+};
+
 // Get all projects for the authenticated user
 router.get('/', jwtAuth, async (req, res) => {
   try {
     const projects = await Project.find({
-      $or: [
-        { owner: req.user._id },
-        { members: req.user._id }
-      ]
-    }).populate('owner', 'name email')
+      $or: [{ owner: req.user._id }, { members: req.user._id }]
+    })
+      .populate('owner', 'name email')
       .populate('members', 'name email')
       .populate('projectManager', 'name email')
       .sort({ updatedAt: -1 });
 
     // Get task stats for each project
     const projectsWithStats = await Promise.all(
-      projects.map(async (project) => {
+      projects.map(async project => {
         const tasks = await Task.find({ project: project._id });
         const totalTasks = tasks.length;
         const completedTasks = tasks.filter(task => task.status === 'done').length;
-        const completionPercentage = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+        const completionPercentage = calculateProgressPercentage(tasks);
 
         return {
           ...project.toObject(),
@@ -58,7 +86,8 @@ router.get('/:id', jwtAuth, async (req, res) => {
     }
 
     // Check if user has access to this project
-    const hasAccess = project.owner._id.toString() === req.user._id.toString() ||
+    const hasAccess =
+      project.owner._id.toString() === req.user._id.toString() ||
       project.members.some(member => member._id.toString() === req.user._id.toString());
 
     if (!hasAccess) {
@@ -69,7 +98,7 @@ router.get('/:id', jwtAuth, async (req, res) => {
     const tasks = await Task.find({ project: project._id });
     const totalTasks = tasks.length;
     const completedTasks = tasks.filter(task => task.status === 'done').length;
-    const completionPercentage = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+    const completionPercentage = calculateProgressPercentage(tasks);
 
     const projectWithStats = {
       ...project.toObject(),
@@ -182,14 +211,30 @@ router.put('/:id', jwtAuth, async (req, res) => {
 
     const { title, description, status, dueDate, color, priority, tags, projectManager } = req.body;
 
-    if (title) project.title = title;
-    if (description) project.description = description;
-    if (status) project.status = status;
-    if (dueDate) project.dueDate = new Date(dueDate);
-    if (color) project.color = color;
-    if (priority) project.priority = priority;
-    if (tags !== undefined) project.tags = tags;
-    if (projectManager !== undefined) project.projectManager = projectManager;
+    if (title) {
+      project.title = title;
+    }
+    if (description) {
+      project.description = description;
+    }
+    if (status) {
+      project.status = status;
+    }
+    if (dueDate) {
+      project.dueDate = new Date(dueDate);
+    }
+    if (color) {
+      project.color = color;
+    }
+    if (priority) {
+      project.priority = priority;
+    }
+    if (tags !== undefined) {
+      project.tags = tags;
+    }
+    if (projectManager !== undefined) {
+      project.projectManager = projectManager;
+    }
 
     await project.save();
     await project.populate('owner', 'name email');
@@ -198,18 +243,20 @@ router.put('/:id', jwtAuth, async (req, res) => {
 
     // Send notifications to all project members about the update
     try {
-      const notificationPromises = project.members.map(member => {
-        if (member._id.toString() !== req.user._id.toString()) {
-          return Notification.create({
-            recipient: member._id,
-            type: 'project_updated',
-            title: 'Project Updated',
-            message: `${req.user.name} updated the project "${project.title}"`,
-            relatedProject: project._id,
-            sender: req.user._id
-          });
-        }
-      }).filter(Boolean);
+      const notificationPromises = project.members
+        .map(member => {
+          if (member._id.toString() !== req.user._id.toString()) {
+            return Notification.create({
+              recipient: member._id,
+              type: 'project_updated',
+              title: 'Project Updated',
+              message: `${req.user.name} updated the project "${project.title}"`,
+              relatedProject: project._id,
+              sender: req.user._id
+            });
+          }
+        })
+        .filter(Boolean);
 
       await Promise.all(notificationPromises);
     } catch (notifError) {
@@ -220,7 +267,7 @@ router.put('/:id', jwtAuth, async (req, res) => {
     const tasks = await Task.find({ project: project._id });
     const totalTasks = tasks.length;
     const completedTasks = tasks.filter(task => task.status === 'done').length;
-    const completionPercentage = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+    const completionPercentage = calculateProgressPercentage(tasks);
 
     const projectWithStats = {
       ...project.toObject(),
@@ -257,17 +304,19 @@ router.delete('/:id', jwtAuth, async (req, res) => {
 
     // Send notifications to all project members about deletion
     try {
-      const notificationPromises = project.members.map(member => {
-        if (member._id.toString() !== req.user._id.toString()) {
-          return Notification.create({
-            recipient: member._id,
-            type: 'project_deleted',
-            title: 'Project Deleted',
-            message: `The project "${project.title}" has been deleted by ${req.user.name}`,
-            sender: req.user._id
-          });
-        }
-      }).filter(Boolean);
+      const notificationPromises = project.members
+        .map(member => {
+          if (member._id.toString() !== req.user._id.toString()) {
+            return Notification.create({
+              recipient: member._id,
+              type: 'project_deleted',
+              title: 'Project Deleted',
+              message: `The project "${project.title}" has been deleted by ${req.user.name}`,
+              sender: req.user._id
+            });
+          }
+        })
+        .filter(Boolean);
 
       await Promise.all(notificationPromises);
     } catch (notifError) {
@@ -349,9 +398,7 @@ router.delete('/:id/members/:memberId', jwtAuth, async (req, res) => {
       return res.status(403).json({ error: 'Only project owner can remove members' });
     }
 
-    project.members = project.members.filter(
-      member => member.toString() !== req.params.memberId
-    );
+    project.members = project.members.filter(member => member.toString() !== req.params.memberId);
 
     await project.save();
     await project.populate('members', 'name email');

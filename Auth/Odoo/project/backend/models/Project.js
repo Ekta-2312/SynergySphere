@@ -1,42 +1,46 @@
 const mongoose = require('mongoose');
 
 const ProjectSchema = new mongoose.Schema({
-  title: { 
-    type: String, 
+  title: {
+    type: String,
     required: true,
     trim: true
   },
-  description: { 
-    type: String, 
-    required: true 
+  description: {
+    type: String,
+    required: true
   },
-  owner: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'Register', 
-    required: true 
+  owner: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Register',
+    required: true
   },
-  members: [{ 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'Register' 
-  }],
-  status: { 
-    type: String, 
-    enum: ['active', 'completed', 'on-hold', 'cancelled'], 
-    default: 'active' 
+  members: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Register'
+    }
+  ],
+  status: {
+    type: String,
+    enum: ['active', 'completed', 'on-hold', 'cancelled'],
+    default: 'active'
   },
-  color: { 
-    type: String, 
-    default: '#4A00E0' 
+  color: {
+    type: String,
+    default: '#4A00E0'
   },
   priority: {
     type: String,
     enum: ['low', 'medium', 'high'],
     default: 'medium'
   },
-  tags: [{
-    type: String,
-    trim: true
-  }],
+  tags: [
+    {
+      type: String,
+      trim: true
+    }
+  ],
   projectManager: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Register'
@@ -44,21 +48,21 @@ const ProjectSchema = new mongoose.Schema({
   image: {
     type: String // URL or filename for uploaded image
   },
-  dueDate: { 
-    type: Date 
+  dueDate: {
+    type: Date
   },
-  createdAt: { 
-    type: Date, 
-    default: Date.now 
+  createdAt: {
+    type: Date,
+    default: Date.now
   },
-  updatedAt: { 
-    type: Date, 
-    default: Date.now 
+  updatedAt: {
+    type: Date,
+    default: Date.now
   }
 });
 
 // Update the updatedAt field before saving
-ProjectSchema.pre('save', function(next) {
+ProjectSchema.pre('save', function (next) {
   this.updatedAt = Date.now();
   next();
 });

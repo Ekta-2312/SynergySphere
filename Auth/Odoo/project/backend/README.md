@@ -22,39 +22,42 @@ A comprehensive project management backend built with Node.js, Express, and Mong
 ## Installation
 
 1. **Clone the repository**
+
    ```bash
    git clone <repository-url>
    cd project/backend
    ```
 
 2. **Install dependencies**
+
    ```bash
    npm install
    ```
 
 3. **Environment Setup**
    Create a `.env` file in the backend directory:
+
    ```env
    # Database
    MONGODB_URI=mongodb://localhost:27017/synergysphere
-   
+
    # JWT Secret
    JWT_SECRET=your-super-secret-jwt-key-here
-   
+
    # Email Configuration
    EMAIL_HOST=smtp.gmail.com
    EMAIL_PORT=587
    EMAIL_USER=your-email@gmail.com
    EMAIL_PASS=your-app-password
-   
+
    # Google OAuth
    GOOGLE_CLIENT_ID=your-google-client-id
    GOOGLE_CLIENT_SECRET=your-google-client-secret
-   
+
    # URLs
    FRONTEND_URL=http://localhost:5173
    BACKEND_URL=http://localhost:5000
-   
+
    # Session
    SESSION_SECRET=your-session-secret
    NODE_ENV=development
@@ -70,9 +73,11 @@ A comprehensive project management backend built with Node.js, Express, and Mong
 ### Authentication Endpoints
 
 #### POST `/api/auth/register`
+
 Register a new user account.
 
 **Request Body:**
+
 ```json
 {
   "name": "John Doe",
@@ -82,6 +87,7 @@ Register a new user account.
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -94,9 +100,11 @@ Register a new user account.
 ```
 
 #### POST `/api/auth/verify`
+
 Verify user email with OTP.
 
 **Request Body:**
+
 ```json
 {
   "email": "john@example.com",
@@ -105,9 +113,11 @@ Verify user email with OTP.
 ```
 
 #### POST `/api/auth/login`
+
 Login with email and password.
 
 **Request Body:**
+
 ```json
 {
   "email": "john@example.com",
@@ -116,6 +126,7 @@ Login with email and password.
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -132,12 +143,15 @@ Login with email and password.
 All project endpoints require authentication via Bearer token.
 
 #### GET `/api/projects`
+
 Get all projects for authenticated user.
 
 #### POST `/api/projects`
+
 Create a new project.
 
 **Request Body:**
+
 ```json
 {
   "title": "My Project",
@@ -148,23 +162,29 @@ Create a new project.
 ```
 
 #### GET `/api/projects/:id`
+
 Get specific project details.
 
 #### PUT `/api/projects/:id`
+
 Update project (owner only).
 
 #### DELETE `/api/projects/:id`
+
 Delete project (owner only).
 
 ### Task Endpoints
 
 #### GET `/api/tasks/project/:projectId`
+
 Get all tasks for a project.
 
 #### POST `/api/tasks`
+
 Create a new task.
 
 **Request Body:**
+
 ```json
 {
   "title": "Task Title",
@@ -178,30 +198,37 @@ Create a new task.
 ```
 
 #### PUT `/api/tasks/:id`
+
 Update task.
 
 #### DELETE `/api/tasks/:id`
+
 Delete task.
 
 ### Discussion Endpoints
 
 #### GET `/api/discussions/project/:projectId`
+
 Get project discussions.
 
 #### POST `/api/discussions`
+
 Create new discussion.
 
 ### Notification Endpoints
 
 #### GET `/api/notifications`
+
 Get user notifications.
 
 #### GET `/api/notifications/unread-count`
+
 Get unread notification count.
 
 ## Database Schema
 
 ### User (Register)
+
 ```javascript
 {
   name: String,
@@ -216,6 +243,7 @@ Get unread notification count.
 ```
 
 ### Project
+
 ```javascript
 {
   title: String,
@@ -231,6 +259,7 @@ Get unread notification count.
 ```
 
 ### Task
+
 ```javascript
 {
   title: String,

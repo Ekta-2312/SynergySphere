@@ -1,7 +1,9 @@
 const nodemailer = require('nodemailer');
 
 if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-  console.warn('Warning: EMAIL_USER and EMAIL_PASS not configured. Email functionality will not work.');
+  console.warn(
+    'Warning: EMAIL_USER and EMAIL_PASS not configured. Email functionality will not work.'
+  );
 }
 
 const transporter = nodemailer.createTransport({
@@ -10,11 +12,11 @@ const transporter = nodemailer.createTransport({
   secure: false,
   auth: {
     user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
+    pass: process.env.EMAIL_PASS
   },
   tls: {
-    rejectUnauthorized: false,
-  },
+    rejectUnauthorized: false
+  }
 });
 
 // Verify transporter configuration

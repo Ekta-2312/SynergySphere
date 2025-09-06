@@ -23,7 +23,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [pendingVerificationEmail, setPendingVerificationEmail] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  const login = async ({ email, password, isOtp }: { email: string; password: string; isOtp: boolean }) => {
+  const login = async ({
+    email,
+    password,
+    isOtp,
+  }: {
+    email: string;
+    password: string;
+    isOtp: boolean;
+  }) => {
     setIsLoading(true);
     try {
       // Implement your login API call here
@@ -36,7 +44,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const signup = async ({ email, password, name }: { email: string; password: string; name: string }) => {
+  const signup = async ({
+    email,
+    password,
+    name,
+  }: {
+    email: string;
+    password: string;
+    name: string;
+  }) => {
     setIsLoading(true);
     try {
       // Implement your signup API call here

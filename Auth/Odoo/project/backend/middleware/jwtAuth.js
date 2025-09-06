@@ -5,9 +5,10 @@ const jwtAuth = async (req, res, next) => {
   try {
     // Get token from header
     const authHeader = req.header('Authorization');
-    let token = authHeader && authHeader.startsWith('Bearer ') 
-      ? authHeader.replace('Bearer ', '')
-      : req.cookies?.accessToken;
+    const token =
+      authHeader && authHeader.startsWith('Bearer ')
+        ? authHeader.replace('Bearer ', '')
+        : req.cookies?.accessToken;
 
     if (!token) {
       return res.status(401).json({ error: 'Access denied. No token provided.' });
@@ -15,7 +16,7 @@ const jwtAuth = async (req, res, next) => {
 
     // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
-    
+
     // Get user from database
     const user = await Register.findById(decoded.id);
     if (!user) {

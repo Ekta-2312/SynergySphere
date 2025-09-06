@@ -5,6 +5,36 @@ const Project = require('../models/Project');
 const Notification = require('../models/Notification');
 const jwtAuth = require('../middleware/jwtAuth');
 
+// Helper function to calculate progress percentage based on task status
+const calculateProgressPercentage = tasks => {
+  if (tasks.length === 0) {
+    return 0;
+  }
+
+  let totalProgress = 0;
+
+  tasks.forEach(task => {
+    switch (task.status) {
+      case 'todo':
+        totalProgress += 0; // 0%
+        break;
+      case 'in-progress':
+        totalProgress += 25; // 25%
+        break;
+      case 'in-review':
+        totalProgress += 75; // 75%
+        break;
+      case 'done':
+        totalProgress += 100; // 100%
+        break;
+      default:
+        totalProgress += 0;
+    }
+  });
+
+  return Math.round(totalProgress / tasks.length);
+};
+
 // Get tasks for a specific project
 router.get('/project/:projectId', jwtAuth, async (req, res) => {
   try {
@@ -15,8 +45,9 @@ router.get('/project/:projectId', jwtAuth, async (req, res) => {
     }
 
     // Check if user has access to this project
-    const hasAccess = project.owner.toString() === req.user._id.toString() ||
-                     project.members.some(member => member.toString() === req.user._id.toString());
+    const hasAccess =
+      project.owner.toString() === req.user._id.toString() ||
+      project.members.some(member => member.toString() === req.user._id.toString());
 
     if (!hasAccess) {
       return res.status(403).json({ error: 'Access denied' });
@@ -38,11 +69,9 @@ router.get('/project/:projectId', jwtAuth, async (req, res) => {
 router.get('/my-tasks', jwtAuth, async (req, res) => {
   try {
     const tasks = await Task.find({
-      $or: [
-        { assignee: req.user._id },
-        { creator: req.user._id }
-      ]
-    }).populate('project', 'title color')
+      $or: [{ assignee: req.user._id }, { creator: req.user._id }]
+    })
+      .populate('project', 'title color')
       .populate('assignee', 'name email')
       .populate('creator', 'name email')
       .sort({ createdAt: -1 });
@@ -68,8 +97,9 @@ router.get('/:id', jwtAuth, async (req, res) => {
 
     // Check if user has access to this task's project
     const project = task.project;
-    const hasAccess = project.owner.toString() === req.user._id.toString() ||
-                     project.members.some(member => member.toString() === req.user._id.toString());
+    const hasAccess =
+      project.owner.toString() === req.user._id.toString() ||
+      project.members.some(member => member.toString() === req.user._id.toString());
 
     if (!hasAccess) {
       return res.status(403).json({ error: 'Access denied' });
@@ -85,7 +115,16 @@ router.get('/:id', jwtAuth, async (req, res) => {
 // Create a new task
 router.post('/', jwtAuth, async (req, res) => {
   try {
-    const { title, description, project: projectId, assignee, priority, dueDate, tags, estimatedHours } = req.body;
+    const {
+      title,
+      description,
+      project: projectId,
+      assignee,
+      priority,
+      dueDate,
+      tags,
+      estimatedHours
+    } = req.body;
 
     if (!title || !projectId) {
       return res.status(400).json({ error: 'Title and project are required' });
@@ -97,8 +136,9 @@ router.post('/', jwtAuth, async (req, res) => {
       return res.status(404).json({ error: 'Project not found' });
     }
 
-    const hasAccess = project.owner.toString() === req.user._id.toString() ||
-                     project.members.some(member => member.toString() === req.user._id.toString());
+    const hasAccess =
+      project.owner.toString() === req.user._id.toString() ||
+      project.members.some(member => member.toString() === req.user._id.toString());
 
     if (!hasAccess) {
       return res.status(403).json({ error: 'Access denied to this project' });
@@ -137,8 +177,10 @@ router.post('/', jwtAuth, async (req, res) => {
       }
 
       // Notify project owner if different from creator and assignee
-      if (project.owner.toString() !== req.user._id.toString() && 
-          project.owner.toString() !== assignee) {
+      if (
+        project.owner.toString() !== req.user._id.toString() &&
+        project.owner.toString() !== assignee
+      ) {
         await Notification.create({
           recipient: project.owner,
           sender: req.user._id,
@@ -160,7 +202,6 @@ router.post('/', jwtAuth, async (req, res) => {
         relatedProject: projectId,
         relatedTask: task._id
       });
-
     } catch (notifError) {
       console.error('Error creating task notifications:', notifError);
     }
@@ -183,14 +224,25 @@ router.put('/:id', jwtAuth, async (req, res) => {
 
     // Check if user has access to this task's project
     const project = task.project;
-    const hasAccess = project.owner.toString() === req.user._id.toString() ||
-                     project.members.some(member => member.toString() === req.user._id.toString());
+    const hasAccess =
+      project.owner.toString() === req.user._id.toString() ||
+      project.members.some(member => member.toString() === req.user._id.toString());
 
     if (!hasAccess) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    const { title, description, status, priority, assignee, dueDate, tags, estimatedHours, actualHours } = req.body;
+    const {
+      title,
+      description,
+      status,
+      priority,
+      assignee,
+      dueDate,
+      tags,
+      estimatedHours,
+      actualHours
+    } = req.body;
 
     // Store original values for notification comparison
     const originalStatus = task.status;
@@ -198,8 +250,12 @@ router.put('/:id', jwtAuth, async (req, res) => {
     const originalPriority = task.priority;
 
     // Update fields
-    if (title !== undefined) task.title = title;
-    if (description !== undefined) task.description = description;
+    if (title !== undefined) {
+      task.title = title;
+    }
+    if (description !== undefined) {
+      task.description = description;
+    }
     if (status !== undefined) {
       task.status = status;
       if (status === 'done' && !task.completedAt) {
@@ -208,12 +264,24 @@ router.put('/:id', jwtAuth, async (req, res) => {
         task.completedAt = undefined;
       }
     }
-    if (priority !== undefined) task.priority = priority;
-    if (assignee !== undefined) task.assignee = assignee;
-    if (dueDate !== undefined) task.dueDate = dueDate;
-    if (tags !== undefined) task.tags = tags;
-    if (estimatedHours !== undefined) task.estimatedHours = estimatedHours;
-    if (actualHours !== undefined) task.actualHours = actualHours;
+    if (priority !== undefined) {
+      task.priority = priority;
+    }
+    if (assignee !== undefined) {
+      task.assignee = assignee;
+    }
+    if (dueDate !== undefined) {
+      task.dueDate = dueDate;
+    }
+    if (tags !== undefined) {
+      task.tags = tags;
+    }
+    if (estimatedHours !== undefined) {
+      task.estimatedHours = estimatedHours;
+    }
+    if (actualHours !== undefined) {
+      task.actualHours = actualHours;
+    }
 
     await task.save();
     await task.populate('assignee', 'name email');
@@ -228,49 +296,55 @@ router.put('/:id', jwtAuth, async (req, res) => {
         if (status === 'done') {
           // Notify project owner if task completed by someone else
           if (project.owner.toString() !== req.user._id.toString()) {
-            notificationPromises.push(Notification.create({
-              recipient: project.owner,
-              type: 'task_completed',
-              title: 'Task Completed',
-              message: `${req.user.name} completed the task "${task.title}"`,
-              relatedProject: project._id,
-              relatedTask: task._id,
-              sender: req.user._id
-            }));
+            notificationPromises.push(
+              Notification.create({
+                recipient: project.owner,
+                type: 'task_completed',
+                title: 'Task Completed',
+                message: `${req.user.name} completed the task "${task.title}"`,
+                relatedProject: project._id,
+                relatedTask: task._id,
+                sender: req.user._id
+              })
+            );
           }
 
           // Notify task creator if someone else completed it
           if (task.creator._id.toString() !== req.user._id.toString()) {
-            notificationPromises.push(Notification.create({
-              recipient: task.creator._id,
-              type: 'task_completed',
-              title: 'Task Completed',
-              message: `${req.user.name} completed your task "${task.title}"`,
-              relatedProject: project._id,
-              relatedTask: task._id,
-              sender: req.user._id
-            }));
+            notificationPromises.push(
+              Notification.create({
+                recipient: task.creator._id,
+                type: 'task_completed',
+                title: 'Task Completed',
+                message: `${req.user.name} completed your task "${task.title}"`,
+                relatedProject: project._id,
+                relatedTask: task._id,
+                sender: req.user._id
+              })
+            );
           }
         } else {
           // Notify for other status changes
           const statusLabels = {
-            'todo': 'To Do',
+            todo: 'To Do',
             'in-progress': 'In Progress',
             'in-review': 'In Review',
-            'done': 'Done'
+            done: 'Done'
           };
 
           // Notify assignee if someone else changed status
           if (task.assignee && task.assignee._id.toString() !== req.user._id.toString()) {
-            notificationPromises.push(Notification.create({
-              recipient: task.assignee._id,
-              type: 'task_status_changed',
-              title: 'Task Status Updated',
-              message: `${req.user.name} changed the status of "${task.title}" to ${statusLabels[status] || status}`,
-              relatedProject: project._id,
-              relatedTask: task._id,
-              sender: req.user._id
-            }));
+            notificationPromises.push(
+              Notification.create({
+                recipient: task.assignee._id,
+                type: 'task_status_changed',
+                title: 'Task Status Updated',
+                message: `${req.user.name} changed the status of "${task.title}" to ${statusLabels[status] || status}`,
+                relatedProject: project._id,
+                relatedTask: task._id,
+                sender: req.user._id
+              })
+            );
           }
         }
       }
@@ -280,39 +354,43 @@ router.put('/:id', jwtAuth, async (req, res) => {
         if (assignee) {
           // Notify new assignee
           if (assignee !== req.user._id.toString()) {
-            notificationPromises.push(Notification.create({
-              recipient: assignee,
-              type: 'task_assigned',
-              title: 'Task Assigned',
-              message: `${req.user.name} assigned you the task "${task.title}"`,
-              relatedProject: project._id,
-              relatedTask: task._id,
-              sender: req.user._id
-            }));
+            notificationPromises.push(
+              Notification.create({
+                recipient: assignee,
+                type: 'task_assigned',
+                title: 'Task Assigned',
+                message: `${req.user.name} assigned you the task "${task.title}"`,
+                relatedProject: project._id,
+                relatedTask: task._id,
+                sender: req.user._id
+              })
+            );
           }
         }
 
         // Notify old assignee if task was reassigned
         if (originalAssignee && originalAssignee !== req.user._id.toString()) {
-          notificationPromises.push(Notification.create({
-            recipient: originalAssignee,
-            type: 'task_unassigned',
-            title: 'Task Reassigned',
-            message: `The task "${task.title}" has been reassigned by ${req.user.name}`,
-            relatedProject: project._id,
-            relatedTask: task._id,
-            sender: req.user._id
-          }));
+          notificationPromises.push(
+            Notification.create({
+              recipient: originalAssignee,
+              type: 'task_unassigned',
+              title: 'Task Reassigned',
+              message: `The task "${task.title}" has been reassigned by ${req.user.name}`,
+              relatedProject: project._id,
+              relatedTask: task._id,
+              sender: req.user._id
+            })
+          );
         }
       }
 
       // Notify for priority changes
       if (priority !== undefined && priority !== originalPriority) {
         const priorityLabels = {
-          'low': 'Low',
-          'medium': 'Medium',
-          'high': 'High',
-          'urgent': 'Urgent'
+          low: 'Low',
+          medium: 'Medium',
+          high: 'High',
+          urgent: 'Urgent'
         };
 
         // Notify assignee and project owner
@@ -323,15 +401,17 @@ router.put('/:id', jwtAuth, async (req, res) => {
 
         recipients.forEach(recipientId => {
           if (recipientId !== req.user._id.toString()) {
-            notificationPromises.push(Notification.create({
-              recipient: recipientId,
-              type: 'task_priority_changed',
-              title: 'Task Priority Updated',
-              message: `${req.user.name} changed the priority of "${task.title}" to ${priorityLabels[priority] || priority}`,
-              relatedProject: project._id,
-              relatedTask: task._id,
-              sender: req.user._id
-            }));
+            notificationPromises.push(
+              Notification.create({
+                recipient: recipientId,
+                type: 'task_priority_changed',
+                title: 'Task Priority Updated',
+                message: `${req.user.name} changed the priority of "${task.title}" to ${priorityLabels[priority] || priority}`,
+                relatedProject: project._id,
+                relatedTask: task._id,
+                sender: req.user._id
+              })
+            );
           }
         });
       }
@@ -359,8 +439,9 @@ router.delete('/:id', jwtAuth, async (req, res) => {
 
     // Check if user has access to delete this task (must be creator or project owner)
     const project = task.project;
-    const canDelete = task.creator.toString() === req.user._id.toString() ||
-                     project.owner.toString() === req.user._id.toString();
+    const canDelete =
+      task.creator.toString() === req.user._id.toString() ||
+      project.owner.toString() === req.user._id.toString();
 
     if (!canDelete) {
       return res.status(403).json({ error: 'Access denied' });
@@ -376,38 +457,44 @@ router.delete('/:id', jwtAuth, async (req, res) => {
 
       // Notify assignee if different from deleter
       if (task.assignee && task.assignee._id.toString() !== req.user._id.toString()) {
-        notificationPromises.push(Notification.create({
-          recipient: task.assignee._id,
-          type: 'task_deleted',
-          title: 'Task Deleted',
-          message: `${req.user.name} deleted the task "${task.title}"`,
-          relatedProject: project._id,
-          sender: req.user._id
-        }));
+        notificationPromises.push(
+          Notification.create({
+            recipient: task.assignee._id,
+            type: 'task_deleted',
+            title: 'Task Deleted',
+            message: `${req.user.name} deleted the task "${task.title}"`,
+            relatedProject: project._id,
+            sender: req.user._id
+          })
+        );
       }
 
       // Notify creator if different from deleter
       if (task.creator._id.toString() !== req.user._id.toString()) {
-        notificationPromises.push(Notification.create({
-          recipient: task.creator._id,
-          type: 'task_deleted',
-          title: 'Task Deleted',
-          message: `${req.user.name} deleted your task "${task.title}"`,
-          relatedProject: project._id,
-          sender: req.user._id
-        }));
+        notificationPromises.push(
+          Notification.create({
+            recipient: task.creator._id,
+            type: 'task_deleted',
+            title: 'Task Deleted',
+            message: `${req.user.name} deleted your task "${task.title}"`,
+            relatedProject: project._id,
+            sender: req.user._id
+          })
+        );
       }
 
       // Notify project owner if different from deleter
       if (project.owner.toString() !== req.user._id.toString()) {
-        notificationPromises.push(Notification.create({
-          recipient: project.owner,
-          type: 'task_deleted',
-          title: 'Task Deleted',
-          message: `${req.user.name} deleted the task "${task.title}" from your project`,
-          relatedProject: project._id,
-          sender: req.user._id
-        }));
+        notificationPromises.push(
+          Notification.create({
+            recipient: project.owner,
+            type: 'task_deleted',
+            title: 'Task Deleted',
+            message: `${req.user.name} deleted the task "${task.title}" from your project`,
+            relatedProject: project._id,
+            sender: req.user._id
+          })
+        );
       }
 
       await Promise.all(notificationPromises);
@@ -430,25 +517,18 @@ router.get('/stats/dashboard', jwtAuth, async (req, res) => {
 
     // Get projects where user is owner or member
     const projects = await Project.find({
-      $or: [
-        { owner: userId },
-        { members: userId }
-      ]
+      $or: [{ owner: userId }, { members: userId }]
     });
 
     const projectIds = projects.map(p => p._id);
+    const totalProjects = projects.length;
 
     // Get tasks from user's projects
-    const totalTasks = await Task.countDocuments({ project: { $in: projectIds } });
-    const completedTasks = await Task.countDocuments({ 
-      project: { $in: projectIds }, 
-      status: 'done' 
-    });
+    const allTasks = await Task.find({ project: { $in: projectIds } });
+    const totalTasks = allTasks.length;
+    const completedTasks = allTasks.filter(task => task.status === 'done').length;
     const myTasks = await Task.countDocuments({
-      $or: [
-        { assignee: userId },
-        { creator: userId }
-      ]
+      $or: [{ assignee: userId }, { creator: userId }]
     });
     const overdueTasks = await Task.countDocuments({
       project: { $in: projectIds },
@@ -456,13 +536,14 @@ router.get('/stats/dashboard', jwtAuth, async (req, res) => {
       status: { $ne: 'done' }
     });
 
-    const completionPercentage = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+    const completionPercentage = calculateProgressPercentage(allTasks);
 
     res.json({
-      total: totalTasks,
-      completed: completedTasks,
+      totalTasks,
+      totalProjects,
+      completedTasks,
       myTasks,
-      overdue: overdueTasks,
+      overdueTasks,
       completionPercentage
     });
   } catch (error) {

@@ -9,7 +9,8 @@
  * @returns boolean indicating if email is valid
  */
 export const validateEmail = (email: string): boolean => {
-  const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+  const emailRegex =
+    /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
   return emailRegex.test(email) && email.length <= 254;
 };
 
@@ -24,9 +25,9 @@ export const validatePassword = (password: string) => {
   const hasLowerCase = /[a-z]/.test(password);
   const hasNumbers = /\d/.test(password);
   const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
-  
+
   const score = [hasUpperCase, hasLowerCase, hasNumbers, hasSpecialChar].filter(Boolean).length;
-  
+
   return {
     isValid: password.length >= minLength && score >= 3,
     strength: score <= 1 ? 'weak' : score <= 2 ? 'fair' : score <= 3 ? 'good' : 'strong',
@@ -35,8 +36,8 @@ export const validatePassword = (password: string) => {
       uppercase: hasUpperCase,
       lowercase: hasLowerCase,
       numbers: hasNumbers,
-      special: hasSpecialChar
-    }
+      special: hasSpecialChar,
+    },
   };
 };
 
@@ -59,15 +60,15 @@ export const sanitizeHtml = (input: string): string => {
 export const validateName = (name: string) => {
   const trimmed = name.trim();
   const nameRegex = /^[a-zA-Z\s\-']{2,50}$/;
-  
+
   return {
     isValid: nameRegex.test(trimmed) && trimmed.length >= 2,
     sanitized: sanitizeHtml(trimmed),
     errors: [
       ...(trimmed.length < 2 ? ['Name must be at least 2 characters'] : []),
       ...(trimmed.length > 50 ? ['Name must be less than 50 characters'] : []),
-      ...(!nameRegex.test(trimmed) ? ['Name contains invalid characters'] : [])
-    ]
+      ...(!nameRegex.test(trimmed) ? ['Name contains invalid characters'] : []),
+    ],
   };
 };
 
@@ -78,14 +79,14 @@ export const validateName = (name: string) => {
  */
 export const validateProjectTitle = (title: string) => {
   const trimmed = title.trim();
-  
+
   return {
     isValid: trimmed.length >= 3 && trimmed.length <= 100,
     sanitized: sanitizeHtml(trimmed),
     errors: [
       ...(trimmed.length < 3 ? ['Title must be at least 3 characters'] : []),
-      ...(trimmed.length > 100 ? ['Title must be less than 100 characters'] : [])
-    ]
+      ...(trimmed.length > 100 ? ['Title must be less than 100 characters'] : []),
+    ],
   };
 };
 
@@ -96,13 +97,11 @@ export const validateProjectTitle = (title: string) => {
  */
 export const validateDescription = (description: string) => {
   const trimmed = description.trim();
-  
+
   return {
     isValid: trimmed.length <= 1000,
     sanitized: sanitizeHtml(trimmed),
-    errors: [
-      ...(trimmed.length > 1000 ? ['Description must be less than 1000 characters'] : [])
-    ]
+    errors: [...(trimmed.length > 1000 ? ['Description must be less than 1000 characters'] : [])],
   };
 };
 
@@ -122,8 +121,8 @@ export const validateFile = (
     isValid: file.size <= maxSize && allowedTypes.includes(file.type),
     errors: [
       ...(file.size > maxSize ? [`File size must be less than ${maxSize / (1024 * 1024)}MB`] : []),
-      ...(!allowedTypes.includes(file.type) ? ['File type not allowed'] : [])
-    ]
+      ...(!allowedTypes.includes(file.type) ? ['File type not allowed'] : []),
+    ],
   };
 };
 
@@ -132,9 +131,12 @@ export const validateFile = (
  */
 export class RateLimiter {
   private calls: Map<string, number[]> = new Map();
-  
-  constructor(private maxCalls: number = 5, private windowMs: number = 60000) {}
-  
+
+  constructor(
+    private maxCalls: number = 5,
+    private windowMs: number = 60000
+  ) {}
+
   /**
    * Check if action is allowed
    * @param key - Unique identifier for the action
@@ -143,17 +145,17 @@ export class RateLimiter {
   isAllowed(key: string): boolean {
     const now = Date.now();
     const windowStart = now - this.windowMs;
-    
+
     if (!this.calls.has(key)) {
       this.calls.set(key, []);
     }
-    
+
     const callTimes = this.calls.get(key)!.filter(time => time > windowStart);
-    
+
     if (callTimes.length >= this.maxCalls) {
       return false;
     }
-    
+
     callTimes.push(now);
     this.calls.set(key, callTimes);
     return true;
@@ -177,17 +179,17 @@ export const generateSecureToken = (length: number = 32): string => {
  */
 export const csrfToken = {
   generate: (): string => generateSecureToken(32),
-  
+
   store: (token: string): void => {
     sessionStorage.setItem('csrf_token', token);
   },
-  
+
   get: (): string | null => {
     return sessionStorage.getItem('csrf_token');
   },
-  
+
   validate: (token: string): boolean => {
     const stored = sessionStorage.getItem('csrf_token');
     return stored === token;
-  }
+  },
 };

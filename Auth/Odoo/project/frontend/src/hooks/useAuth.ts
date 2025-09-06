@@ -10,7 +10,7 @@ export const useAuth = () => {
     const savedUser = localStorage.getItem('user');
     return savedUser ? JSON.parse(savedUser) : null;
   });
-  
+
   const isAuthenticated = !!user && !!localStorage.getItem('accessToken');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,7 +43,7 @@ export const useAuth = () => {
   const login = useCallback(async (data: LoginForm): Promise<void> => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
       const response = await fetch(`${API_URL}/login`, {
         method: 'POST',
@@ -51,7 +51,7 @@ export const useAuth = () => {
         body: JSON.stringify(data),
       });
       const result = await handleApiResponse(response);
-      
+
       localStorage.setItem('accessToken', result.token);
       localStorage.setItem('user', JSON.stringify(result.user));
       setUser(result.user);
@@ -67,7 +67,7 @@ export const useAuth = () => {
   const register = useCallback(async (data: RegisterForm): Promise<void> => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
       const response = await fetch(`${API_URL}/register`, {
         method: 'POST',
@@ -111,18 +111,18 @@ export const useAuth = () => {
         body: JSON.stringify({ email, otp }),
       });
       const data = await handleApiResponse(response);
-      
+
       // Store token and user data from verification response
       if (data.token && data.user) {
         localStorage.setItem('accessToken', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
         localStorage.setItem('isNewLogin', 'true'); // Flag for welcome toast
         setUser(data.user);
-        
+
         // Clear pending verification
         localStorage.removeItem('pendingVerification');
         setPendingVerificationEmail(null);
-        
+
         // Navigate to dashboard instead of success page
         navigate('/dashboard');
       }
@@ -136,7 +136,7 @@ export const useAuth = () => {
 
   const clearPendingVerification = useCallback(() => {
     try {
-  localStorage.removeItem('pendingVerification');
+      localStorage.removeItem('pendingVerification');
     } catch (e) {}
     setPendingVerificationEmail(null);
   }, []);
@@ -159,7 +159,6 @@ export const useAuth = () => {
     }
   }, []);
 
-
   return {
     user,
     isAuthenticated,
@@ -173,6 +172,6 @@ export const useAuth = () => {
     resendOtp,
     clearError: () => setError(null),
     pendingVerificationEmail,
-    clearPendingVerification
+    clearPendingVerification,
   };
 };

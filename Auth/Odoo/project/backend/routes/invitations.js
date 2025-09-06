@@ -62,7 +62,7 @@ router.post('/invite', jwtAuth, async (req, res) => {
 
     // Send invitation email
     const inviteUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/invite/${token}`;
-    
+
     const emailSubject = `Invitation to join "${project.title}" project`;
     const emailHtml = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -129,7 +129,7 @@ router.post('/invite', jwtAuth, async (req, res) => {
       });
     }
 
-    res.json({ 
+    res.json({
       message: 'Invitation sent successfully',
       invitation: {
         id: invitation._id,
@@ -137,7 +137,6 @@ router.post('/invite', jwtAuth, async (req, res) => {
         expiresAt: invitation.expiresAt
       }
     });
-
   } catch (error) {
     console.error('Error sending invitation:', error);
     res.status(500).json({ error: 'Failed to send invitation' });
@@ -148,7 +147,7 @@ router.post('/invite', jwtAuth, async (req, res) => {
 router.post('/accept/:token', async (req, res) => {
   try {
     const { token } = req.params;
-    
+
     const invitation = await ProjectInvitation.findOne({ token })
       .populate('project', 'title description owner')
       .populate('inviter', 'name email');
@@ -164,40 +163,41 @@ router.post('/accept/:token', async (req, res) => {
     // Check if user is authenticated (for existing users)
     let userId = req.user?._id;
     let user = null;
-    
+
     if (userId) {
       // User is logged in, verify they're the invited user
       user = await Register.findById(userId);
       if (user.email !== invitation.inviteeEmail) {
-        return res.status(400).json({ 
-          error: 'This invitation is for a different email address. Please log in with the correct account or log out to create a new account.' 
+        return res.status(400).json({
+          error:
+            'This invitation is for a different email address. Please log in with the correct account or log out to create a new account.'
         });
       }
     } else {
       // User is not logged in, handle registration/login
       const { email, password, name } = req.body;
-      
+
       // Check if this is for new user registration
       if (!email) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           error: 'Please provide email or log in to accept this invitation',
           requiresLogin: true
         });
       }
 
       if (email !== invitation.inviteeEmail) {
-        return res.status(400).json({ 
-          error: `This invitation is for ${invitation.inviteeEmail}. Please use the correct email address.` 
+        return res.status(400).json({
+          error: `This invitation is for ${invitation.inviteeEmail}. Please use the correct email address.`
         });
       }
 
       // Check if user exists
       user = await Register.findOne({ email });
-      
+
       if (!user) {
         // User doesn't exist, create new account
         if (!password || !name) {
-          return res.status(400).json({ 
+          return res.status(400).json({
             error: 'Name and password are required to create your account',
             requiresRegistration: true,
             email: invitation.inviteeEmail
@@ -210,7 +210,7 @@ router.post('/accept/:token', async (req, res) => {
 
         // Create new user
         const hashedPassword = await bcrypt.hash(password, 10);
-        
+
         user = new Register({
           name,
           email,
@@ -218,24 +218,26 @@ router.post('/accept/:token', async (req, res) => {
           provider: 'local',
           isVerified: true // Auto-verify invited users
         });
-        
+
         await user.save();
         userId = user._id;
       } else {
         // User exists - check if they're a Google user
         if (user.provider === 'google') {
-          return res.status(400).json({ 
-            error: 'This email is registered with Google. Please use the Google Sign-In button to accept this invitation.',
+          return res.status(400).json({
+            error:
+              'This email is registered with Google. Please use the Google Sign-In button to accept this invitation.',
             requiresGoogleAuth: true,
             userExists: true,
             isGoogleUser: true
           });
         }
-        
+
         // Local user - verify password
         if (!password) {
-          return res.status(400).json({ 
-            error: 'This email is already registered. Please provide your password to accept the invitation.',
+          return res.status(400).json({
+            error:
+              'This email is already registered. Please provide your password to accept the invitation.',
             requiresLogin: true,
             userExists: true,
             isGoogleUser: false
@@ -254,7 +256,7 @@ router.post('/accept/:token', async (req, res) => {
 
     // Add user to project
     const project = await Project.findById(invitation.project._id);
-    
+
     if (!project.members.includes(userId)) {
       project.members.push(userId);
       await project.save();
@@ -276,7 +278,7 @@ router.post('/accept/:token', async (req, res) => {
       relatedProject: project._id
     });
 
-    res.json({ 
+    res.json({
       message: 'Invitation accepted successfully',
       project: {
         id: project._id,
@@ -284,7 +286,6 @@ router.post('/accept/:token', async (req, res) => {
         description: project.description
       }
     });
-
   } catch (error) {
     console.error('Error accepting invitation:', error);
     res.status(500).json({ error: 'Failed to accept invitation' });
@@ -295,7 +296,7 @@ router.post('/accept/:token', async (req, res) => {
 router.post('/accept-google/:token', jwtAuth, async (req, res) => {
   try {
     const { token } = req.params;
-    
+
     const invitation = await ProjectInvitation.findOne({ token })
       .populate('project', 'title description owner')
       .populate('inviter', 'name email');
@@ -310,14 +311,14 @@ router.post('/accept-google/:token', jwtAuth, async (req, res) => {
 
     // Verify the authenticated user matches the invitation email
     if (req.user.email !== invitation.inviteeEmail) {
-      return res.status(400).json({ 
-        error: `This invitation is for ${invitation.inviteeEmail}. Please sign in with the correct Google account.` 
+      return res.status(400).json({
+        error: `This invitation is for ${invitation.inviteeEmail}. Please sign in with the correct Google account.`
       });
     }
 
     // Add user to project
     const project = await Project.findById(invitation.project._id);
-    
+
     if (!project.members.includes(req.user._id)) {
       project.members.push(req.user._id);
       await project.save();
@@ -339,7 +340,7 @@ router.post('/accept-google/:token', jwtAuth, async (req, res) => {
       relatedProject: project._id
     });
 
-    res.json({ 
+    res.json({
       message: 'Invitation accepted successfully',
       project: {
         id: project._id,
@@ -348,7 +349,6 @@ router.post('/accept-google/:token', jwtAuth, async (req, res) => {
       },
       redirectTo: '/dashboard'
     });
-
   } catch (error) {
     console.error('Error accepting Google invitation:', error);
     res.status(500).json({ error: 'Failed to accept invitation' });
@@ -359,7 +359,7 @@ router.post('/accept-google/:token', jwtAuth, async (req, res) => {
 router.post('/decline/:token', async (req, res) => {
   try {
     const { token } = req.params;
-    
+
     const invitation = await ProjectInvitation.findOne({ token })
       .populate('project', 'title owner')
       .populate('inviter', 'name email');
@@ -388,7 +388,6 @@ router.post('/decline/:token', async (req, res) => {
     });
 
     res.json({ message: 'Invitation declined' });
-
   } catch (error) {
     console.error('Error declining invitation:', error);
     res.status(500).json({ error: 'Failed to decline invitation' });
@@ -399,7 +398,7 @@ router.post('/decline/:token', async (req, res) => {
 router.get('/:token', async (req, res) => {
   try {
     const { token } = req.params;
-    
+
     const invitation = await ProjectInvitation.findOne({ token })
       .populate('project', 'title description')
       .populate('inviter', 'name email');
@@ -429,7 +428,6 @@ router.get('/:token', async (req, res) => {
       userExists: !!existingUser,
       isGoogleUser: existingUser?.provider === 'google'
     });
-
   } catch (error) {
     console.error('Error fetching invitation:', error);
     res.status(500).json({ error: 'Failed to fetch invitation details' });
@@ -440,7 +438,7 @@ router.get('/:token', async (req, res) => {
 router.get('/project/:projectId', jwtAuth, async (req, res) => {
   try {
     const { projectId } = req.params;
-    
+
     const project = await Project.findById(projectId);
     if (!project) {
       return res.status(404).json({ error: 'Project not found' });
@@ -455,11 +453,11 @@ router.get('/project/:projectId', jwtAuth, async (req, res) => {
       project: projectId,
       status: 'pending',
       expiresAt: { $gt: new Date() }
-    }).populate('inviter', 'name email')
+    })
+      .populate('inviter', 'name email')
       .sort({ createdAt: -1 });
 
     res.json(invitations);
-
   } catch (error) {
     console.error('Error fetching project invitations:', error);
     res.status(500).json({ error: 'Failed to fetch invitations' });

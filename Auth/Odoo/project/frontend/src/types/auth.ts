@@ -36,7 +36,12 @@ export interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; message?: string }>;
-  signup: (name: string, email: string, password: string, confirmPassword: string) => Promise<{ success: boolean; message?: string }>;
+  signup: (
+    name: string,
+    email: string,
+    password: string,
+    confirmPassword: string
+  ) => Promise<{ success: boolean; message?: string }>;
   logout: () => void;
   loading: boolean;
 }
@@ -116,7 +121,14 @@ export interface Notification {
   _id: string;
   recipient: string;
   sender?: User;
-  type: 'task_assigned' | 'task_completed' | 'task_due_soon' | 'project_invitation' | 'discussion_reply' | 'project_update' | 'deadline_reminder';
+  type:
+    | 'task_assigned'
+    | 'task_completed'
+    | 'task_due_soon'
+    | 'project_invitation'
+    | 'discussion_reply'
+    | 'project_update'
+    | 'deadline_reminder';
   title: string;
   message: string;
   relatedProject?: Project;
