@@ -1,0 +1,289 @@
+const express = require('express');
+const router = express.Router();
+const Task = require('../models/Task');
+const Project = require('../models/Project');
+const Notification = require('../models/Notification');
+const jwtAuth = require('../middleware/jwtAuth');
+
+// Get tasks for a specific project
+router.get('/project/:projectId', jwtAuth, async (req, res) => {
+  try {
+    const project = await Project.findById(req.params.projectId);
+
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    // Check if user has access to this project
+    const hasAccess = project.owner.toString() === req.user._id.toString() ||
+                     project.members.some(member => member.toString() === req.user._id.toString());
+
+    if (!hasAccess) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const tasks = await Task.find({ project: req.params.projectId })
+      .populate('assignee', 'name email')
+      .populate('creator', 'name email')
+      .sort({ createdAt: -1 });
+
+    res.json(tasks);
+  } catch (error) {
+    console.error('Error fetching tasks:', error);
+    res.status(500).json({ error: 'Failed to fetch tasks' });
+  }
+});
+
+// Get tasks assigned to the authenticated user
+router.get('/my-tasks', jwtAuth, async (req, res) => {
+  try {
+    const tasks = await Task.find({
+      $or: [
+        { assignee: req.user._id },
+        { creator: req.user._id }
+      ]
+    }).populate('project', 'title color')
+      .populate('assignee', 'name email')
+      .populate('creator', 'name email')
+      .sort({ createdAt: -1 });
+
+    res.json(tasks);
+  } catch (error) {
+    console.error('Error fetching user tasks:', error);
+    res.status(500).json({ error: 'Failed to fetch tasks' });
+  }
+});
+
+// Get a single task
+router.get('/:id', jwtAuth, async (req, res) => {
+  try {
+    const task = await Task.findById(req.params.id)
+      .populate('project', 'title members owner')
+      .populate('assignee', 'name email')
+      .populate('creator', 'name email');
+
+    if (!task) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+
+    // Check if user has access to this task's project
+    const project = task.project;
+    const hasAccess = project.owner.toString() === req.user._id.toString() ||
+                     project.members.some(member => member.toString() === req.user._id.toString());
+
+    if (!hasAccess) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    res.json(task);
+  } catch (error) {
+    console.error('Error fetching task:', error);
+    res.status(500).json({ error: 'Failed to fetch task' });
+  }
+});
+
+// Create a new task
+router.post('/', jwtAuth, async (req, res) => {
+  try {
+    const { title, description, project: projectId, assignee, priority, dueDate, tags, estimatedHours } = req.body;
+
+    if (!title || !projectId) {
+      return res.status(400).json({ error: 'Title and project are required' });
+    }
+
+    // Check if project exists and user has access
+    const project = await Project.findById(projectId);
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    const hasAccess = project.owner.toString() === req.user._id.toString() ||
+                     project.members.some(member => member.toString() === req.user._id.toString());
+
+    if (!hasAccess) {
+      return res.status(403).json({ error: 'Access denied to this project' });
+    }
+
+    const task = new Task({
+      title,
+      description,
+      project: projectId,
+      creator: req.user._id,
+      assignee: assignee || req.user._id,
+      priority: priority || 'medium',
+      status: 'todo',
+      dueDate,
+      tags: tags || [],
+      estimatedHours
+    });
+
+    await task.save();
+    await task.populate('assignee', 'name email');
+    await task.populate('creator', 'name email');
+
+    // Create notification for assignee if different from creator
+    if (assignee && assignee !== req.user._id.toString()) {
+      try {
+        await Notification.create({
+          recipient: assignee,
+          type: 'task_assigned',
+          title: 'New Task Assigned',
+          message: `You have been assigned to task: ${title}`,
+          relatedProject: projectId,
+          relatedTask: task._id
+        });
+      } catch (notifError) {
+        console.error('Error creating notification:', notifError);
+      }
+    }
+
+    res.status(201).json(task);
+  } catch (error) {
+    console.error('Error creating task:', error);
+    res.status(500).json({ error: 'Failed to create task' });
+  }
+});
+
+// Update a task
+router.put('/:id', jwtAuth, async (req, res) => {
+  try {
+    const task = await Task.findById(req.params.id).populate('project', 'owner members');
+
+    if (!task) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+
+    // Check if user has access to this task's project
+    const project = task.project;
+    const hasAccess = project.owner.toString() === req.user._id.toString() ||
+                     project.members.some(member => member.toString() === req.user._id.toString());
+
+    if (!hasAccess) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const { title, description, status, priority, assignee, dueDate, tags, estimatedHours, actualHours } = req.body;
+
+    // Update fields
+    if (title !== undefined) task.title = title;
+    if (description !== undefined) task.description = description;
+    if (status !== undefined) {
+      task.status = status;
+      if (status === 'done' && !task.completedAt) {
+        task.completedAt = new Date();
+      } else if (status !== 'done') {
+        task.completedAt = undefined;
+      }
+    }
+    if (priority !== undefined) task.priority = priority;
+    if (assignee !== undefined) task.assignee = assignee;
+    if (dueDate !== undefined) task.dueDate = dueDate;
+    if (tags !== undefined) task.tags = tags;
+    if (estimatedHours !== undefined) task.estimatedHours = estimatedHours;
+    if (actualHours !== undefined) task.actualHours = actualHours;
+
+    await task.save();
+    await task.populate('assignee', 'name email');
+    await task.populate('creator', 'name email');
+
+    // Create notifications for status changes
+    if (status === 'done') {
+      try {
+        // Notify project owner if task completed by someone else
+        if (project.owner.toString() !== req.user._id.toString()) {
+          await Notification.create({
+            recipient: project.owner,
+            type: 'task_completed',
+            title: 'Task Completed',
+            message: `Task "${task.title}" has been completed`,
+            relatedProject: project._id,
+            relatedTask: task._id
+          });
+        }
+      } catch (notifError) {
+        console.error('Error creating notification:', notifError);
+      }
+    }
+
+    res.json(task);
+  } catch (error) {
+    console.error('Error updating task:', error);
+    res.status(500).json({ error: 'Failed to update task' });
+  }
+});
+
+// Delete a task
+router.delete('/:id', jwtAuth, async (req, res) => {
+  try {
+    const task = await Task.findById(req.params.id).populate('project', 'owner members');
+
+    if (!task) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+
+    // Check if user has access to delete this task (must be creator or project owner)
+    const project = task.project;
+    const canDelete = task.creator.toString() === req.user._id.toString() ||
+                     project.owner.toString() === req.user._id.toString();
+
+    if (!canDelete) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    await Task.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Task deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting task:', error);
+    res.status(500).json({ error: 'Failed to delete task' });
+  }
+});
+
+// Get dashboard stats for tasks
+router.get('/stats/dashboard', jwtAuth, async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    // Get projects where user is owner or member
+    const projects = await Project.find({
+      $or: [
+        { owner: userId },
+        { members: userId }
+      ]
+    });
+
+    const projectIds = projects.map(p => p._id);
+
+    // Get tasks from user's projects
+    const totalTasks = await Task.countDocuments({ project: { $in: projectIds } });
+    const completedTasks = await Task.countDocuments({ 
+      project: { $in: projectIds }, 
+      status: 'done' 
+    });
+    const myTasks = await Task.countDocuments({
+      $or: [
+        { assignee: userId },
+        { creator: userId }
+      ]
+    });
+    const overdueTasks = await Task.countDocuments({
+      project: { $in: projectIds },
+      dueDate: { $lt: new Date() },
+      status: { $ne: 'done' }
+    });
+
+    const completionPercentage = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+    res.json({
+      total: totalTasks,
+      completed: completedTasks,
+      myTasks,
+      overdue: overdueTasks,
+      completionPercentage
+    });
+  } catch (error) {
+    console.error('Error fetching task stats:', error);
+    res.status(500).json({ error: 'Failed to fetch task statistics' });
+  }
+});
+
+module.exports = router;
