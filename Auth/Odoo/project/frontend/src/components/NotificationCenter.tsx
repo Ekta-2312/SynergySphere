@@ -32,21 +32,16 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
 
   const markAsRead = async (notificationId: string) => {
     try {
-      const response = await fetch(`/api/notifications/${notificationId}/read`, {
-        method: 'PUT',
-        credentials: 'include'
-      });
+      await api.put(`/notifications/${notificationId}/read`);
 
-      if (response.ok) {
-        setNotifications(prev => prev.map(notif => 
-          notif._id === notificationId 
-            ? { ...notif, isRead: true, readAt: new Date().toISOString() }
-            : notif
-        ));
-        
-        const unreadCount = notifications.filter(n => !n.isRead && n._id !== notificationId).length;
-        onUnreadCountChange(unreadCount);
-      }
+      setNotifications(prev => prev.map(notif => 
+        notif._id === notificationId 
+          ? { ...notif, isRead: true, readAt: new Date().toISOString() }
+          : notif
+      ));
+      
+      const unreadCount = notifications.filter(n => !n.isRead && n._id !== notificationId).length;
+      onUnreadCountChange(unreadCount);
     } catch (error) {
       console.error('Error marking notification as read:', error);
     }
@@ -54,19 +49,14 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
 
   const markAllAsRead = async () => {
     try {
-      const response = await fetch('/api/notifications/mark-all-read', {
-        method: 'PUT',
-        credentials: 'include'
-      });
+      await api.put('/notifications/mark-all-read');
 
-      if (response.ok) {
-        setNotifications(prev => prev.map(notif => ({
-          ...notif,
-          isRead: true,
-          readAt: new Date().toISOString()
-        })));
-        onUnreadCountChange(0);
-      }
+      setNotifications(prev => prev.map(notif => ({
+        ...notif,
+        isRead: true,
+        readAt: new Date().toISOString()
+      })));
+      onUnreadCountChange(0);
     } catch (error) {
       console.error('Error marking all notifications as read:', error);
     }
@@ -74,19 +64,14 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
 
   const deleteNotification = async (notificationId: string) => {
     try {
-      const response = await fetch(`/api/notifications/${notificationId}`, {
-        method: 'DELETE',
-        credentials: 'include'
-      });
+      await api.delete(`/notifications/${notificationId}`);
 
-      if (response.ok) {
-        setNotifications(prev => prev.filter(notif => notif._id !== notificationId));
-        
-        const deletedNotification = notifications.find(n => n._id === notificationId);
-        if (deletedNotification && !deletedNotification.isRead) {
-          const unreadCount = notifications.filter(n => !n.isRead && n._id !== notificationId).length;
-          onUnreadCountChange(unreadCount);
-        }
+      setNotifications(prev => prev.filter(notif => notif._id !== notificationId));
+      
+      const deletedNotification = notifications.find(n => n._id === notificationId);
+      if (deletedNotification && !deletedNotification.isRead) {
+        const unreadCount = notifications.filter(n => !n.isRead && n._id !== notificationId).length;
+        onUnreadCountChange(unreadCount);
       }
     } catch (error) {
       console.error('Error deleting notification:', error);

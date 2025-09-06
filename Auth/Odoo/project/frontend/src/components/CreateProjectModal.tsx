@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Project } from '../types/auth';
+import React, { useState, useEffect } from 'react';
+import { Project, User } from '../types/auth';
 import { api } from '../utils/api';
 
 interface CreateProjectModalProps {
@@ -15,10 +15,16 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
     title: '',
     description: '',
     dueDate: '',
-    color: '#4A00E0'
+    color: '#4A00E0',
+    priority: 'medium' as 'low' | 'medium' | 'high',
+    tags: [] as string[],
+    projectManager: ''
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [teamMembers, setTeamMembers] = useState<User[]>([]);
+  const [availableTags] = useState(['Frontend', 'Backend', 'Design', 'Testing', 'DevOps', 'Research', 'Documentation']);
+  const [newTag, setNewTag] = useState('');
 
   const colors = [
     '#4A00E0', '#8E2DE2', '#FF6B6B', '#4ECDC4',
@@ -46,11 +52,37 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setFormData(prev => ({
       ...prev,
       [e.target.name]: e.target.value
     }));
+  };
+
+  const handlePriorityChange = (priority: 'low' | 'medium' | 'high') => {
+    setFormData(prev => ({
+      ...prev,
+      priority
+    }));
+  };
+
+  const handleTagToggle = (tag: string) => {
+    setFormData(prev => ({
+      ...prev,
+      tags: prev.tags.includes(tag)
+        ? prev.tags.filter(t => t !== tag)
+        : [...prev.tags, tag]
+    }));
+  };
+
+  const handleAddNewTag = () => {
+    if (newTag.trim() && !formData.tags.includes(newTag.trim())) {
+      setFormData(prev => ({
+        ...prev,
+        tags: [...prev.tags, newTag.trim()]
+      }));
+      setNewTag('');
+    }
   };
 
   return (

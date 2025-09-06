@@ -4,6 +4,7 @@ const Project = require('../models/Project');
 const Task = require('../models/Task');
 const Notification = require('../models/Notification');
 const jwtAuth = require('../middleware/jwtAuth');
+const upload = require('../middleware/upload');
 
 // Get all projects for the authenticated user
 router.get('/', jwtAuth, async (req, res) => {
@@ -15,6 +16,7 @@ router.get('/', jwtAuth, async (req, res) => {
       ]
     }).populate('owner', 'name email')
       .populate('members', 'name email')
+      .populate('projectManager', 'name email')
       .sort({ updatedAt: -1 });
 
     // Get task stats for each project
@@ -48,7 +50,8 @@ router.get('/:id', jwtAuth, async (req, res) => {
   try {
     const project = await Project.findById(req.params.id)
       .populate('owner', 'name email')
-      .populate('members', 'name email');
+      .populate('members', 'name email')
+      .populate('projectManager', 'name email');
 
     if (!project) {
       return res.status(404).json({ error: 'Project not found' });
@@ -85,26 +88,69 @@ router.get('/:id', jwtAuth, async (req, res) => {
 });
 
 // Create a new project
-router.post('/', jwtAuth, async (req, res) => {
+router.post('/', jwtAuth, upload.single('image'), async (req, res) => {
   try {
-    const { title, description, dueDate, color } = req.body;
+    const { title, description, dueDate, color, priority, tags, projectManager } = req.body;
 
     if (!title || !description) {
       return res.status(400).json({ error: 'Title and description are required' });
     }
 
-    const project = new Project({
+    // Parse tags if they come as a JSON string
+    let parsedTags = [];
+    if (tags) {
+      try {
+        parsedTags = typeof tags === 'string' ? JSON.parse(tags) : tags;
+      } catch (e) {
+        parsedTags = typeof tags === 'string' ? [tags] : tags;
+      }
+    }
+
+    const projectData = {
       title,
       description,
       owner: req.user._id,
       members: [req.user._id],
       dueDate: dueDate ? new Date(dueDate) : null,
-      color: color || '#4A00E0'
-    });
+      color: color || '#4A00E0',
+      priority: priority || 'medium',
+      tags: parsedTags
+    };
+
+    // Add project manager if specified
+    if (projectManager && projectManager !== req.user._id.toString()) {
+      projectData.projectManager = projectManager;
+      // Add project manager to members if not already included
+      if (!projectData.members.includes(projectManager)) {
+        projectData.members.push(projectManager);
+      }
+    }
+
+    // Add image path if uploaded
+    if (req.file) {
+      projectData.image = `/uploads/projects/${req.file.filename}`;
+    }
+
+    const project = new Project(projectData);
 
     await project.save();
     await project.populate('owner', 'name email');
     await project.populate('members', 'name email');
+    await project.populate('projectManager', 'name email');
+
+    // Create notification for the project creator
+    try {
+      await Notification.create({
+        recipient: req.user._id,
+        sender: req.user._id,
+        type: 'project_created',
+        title: 'Project Created',
+        message: `You have successfully created the project "${title}"`,
+        relatedProject: project._id
+      });
+    } catch (notifError) {
+      console.error('Error creating project notification:', notifError);
+    }
 
     res.status(201).json({
       ...project.toObject(),
@@ -134,19 +180,58 @@ router.put('/:id', jwtAuth, async (req, res) => {
       return res.status(403).json({ error: 'Only project owner can update project' });
     }
 
-    const { title, description, status, dueDate, color } = req.body;
+    const { title, description, status, dueDate, color, priority, tags, projectManager } = req.body;
 
     if (title) project.title = title;
     if (description) project.description = description;
     if (status) project.status = status;
     if (dueDate) project.dueDate = new Date(dueDate);
     if (color) project.color = color;
+    if (priority) project.priority = priority;
+    if (tags !== undefined) project.tags = tags;
+    if (projectManager !== undefined) project.projectManager = projectManager;
 
     await project.save();
     await project.populate('owner', 'name email');
     await project.populate('members', 'name email');
+    await project.populate('projectManager', 'name email');
 
-    res.json(project);
+    // Send notifications to all project members about the update
+    try {
+      const notificationPromises = project.members.map(member => {
+        if (member._id.toString() !== req.user._id.toString()) {
+          return Notification.create({
+            recipient: member._id,
+            type: 'project_updated',
+            title: 'Project Updated',
+            message: `${req.user.name} updated the project "${project.title}"`,
+            relatedProject: project._id,
+            sender: req.user._id
+          });
+        }
+      }).filter(Boolean);
+
+      await Promise.all(notificationPromises);
+    } catch (notifError) {
+      console.error('Error creating project update notifications:', notifError);
+    }
+
+    // Get task stats for the updated project
+    const tasks = await Task.find({ project: project._id });
+    const totalTasks = tasks.length;
+    const completedTasks = tasks.filter(task => task.status === 'done').length;
+    const completionPercentage = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+    const projectWithStats = {
+      ...project.toObject(),
+      taskStats: {
+        total: totalTasks,
+        completed: completedTasks,
+        completionPercentage
+      }
+    };
+
+    res.json(projectWithStats);
   } catch (error) {
     console.error('Error updating project:', error);
     res.status(500).json({ error: 'Failed to update project' });
@@ -165,6 +250,28 @@ router.delete('/:id', jwtAuth, async (req, res) => {
     // Check if user is the owner
     if (project.owner.toString() !== req.user._id.toString()) {
       return res.status(403).json({ error: 'Only project owner can delete project' });
+    }
+
+    // Populate members to send notifications before deletion
+    await project.populate('members', 'name email');
+
+    // Send notifications to all project members about deletion
+    try {
+      const notificationPromises = project.members.map(member => {
+        if (member._id.toString() !== req.user._id.toString()) {
+          return Notification.create({
+            recipient: member._id,
+            type: 'project_deleted',
+            title: 'Project Deleted',
+            message: `The project "${project.title}" has been deleted by ${req.user.name}`,
+            sender: req.user._id
+          });
+        }
+      }).filter(Boolean);
+
+      await Promise.all(notificationPromises);
+    } catch (notifError) {
+      console.error('Error creating project deletion notifications:', notifError);
     }
 
     // Delete all related tasks and discussions

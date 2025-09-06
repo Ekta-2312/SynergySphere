@@ -10,10 +10,16 @@ router.get('/', jwtAuth, async (req, res) => {
       .populate('relatedProject', 'title')
       .populate('relatedTask', 'title')
       .populate('relatedDiscussion', 'title')
+      .populate('sender', 'name email')
       .sort({ createdAt: -1 })
       .limit(50);
 
-    res.json(notifications);
+    const unreadCount = await Notification.countDocuments({
+      recipient: req.user._id,
+      isRead: false
+    });
+
+    res.json({ notifications, unreadCount });
   } catch (error) {
     console.error('Error fetching notifications:', error);
     res.status(500).json({ error: 'Failed to fetch notifications' });
@@ -23,12 +29,12 @@ router.get('/', jwtAuth, async (req, res) => {
 // Get unread notification count
 router.get('/unread-count', jwtAuth, async (req, res) => {
   try {
-    const count = await Notification.countDocuments({
+    const unreadCount = await Notification.countDocuments({
       recipient: req.user._id,
-      read: false
+      isRead: false
     });
 
-    res.json({ count });
+    res.json({ unreadCount });
   } catch (error) {
     console.error('Error fetching unread count:', error);
     res.status(500).json({ error: 'Failed to fetch unread count' });
@@ -49,7 +55,7 @@ router.put('/:id/read', jwtAuth, async (req, res) => {
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    notification.read = true;
+    notification.isRead = true;
     notification.readAt = new Date();
     await notification.save();
 
@@ -64,8 +70,8 @@ router.put('/:id/read', jwtAuth, async (req, res) => {
 router.put('/mark-all-read', jwtAuth, async (req, res) => {
   try {
     await Notification.updateMany(
-      { recipient: req.user._id, read: false },
-      { read: true, readAt: new Date() }
+      { recipient: req.user._id, isRead: false },
+      { isRead: true, readAt: new Date() }
     );
 
     res.json({ message: 'All notifications marked as read' });
@@ -102,7 +108,7 @@ router.delete('/read/all', jwtAuth, async (req, res) => {
   try {
     await Notification.deleteMany({
       recipient: req.user._id,
-      read: true
+      isRead: true
     });
 
     res.json({ message: 'All read notifications deleted successfully' });
@@ -147,7 +153,25 @@ router.post('/', jwtAuth, async (req, res) => {
 router.get('/type/:type', jwtAuth, async (req, res) => {
   try {
     const { type } = req.params;
-    const validTypes = ['project_invitation', 'task_assigned', 'task_completed', 'new_discussion', 'discussion_reply'];
+    const validTypes = [
+      'task_assigned', 
+      'task_completed', 
+      'task_due_soon', 
+      'task_status_changed',
+      'task_priority_changed',
+      'task_unassigned',
+      'task_deleted',
+      'project_invitation', 
+      'project_created',
+      'project_updated',
+      'project_deleted',
+      'discussion_reply', 
+      'new_discussion',
+      'discussion_updated',
+      'discussion_deleted',
+      'project_update',
+      'deadline_reminder'
+    ];
 
     if (!validTypes.includes(type)) {
       return res.status(400).json({ error: 'Invalid notification type' });

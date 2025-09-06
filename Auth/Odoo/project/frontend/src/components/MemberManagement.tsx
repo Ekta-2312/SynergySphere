@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Project } from '../types/auth';
 import { api } from '../utils/api';
 
@@ -14,22 +14,43 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [pendingInvitations, setPendingInvitations] = useState([]);
+
+  useEffect(() => {
+    fetchPendingInvitations();
+  }, [project._id]);
+
+  const fetchPendingInvitations = async () => {
+    try {
+      const invitations = await api.get(`/invitations/project/${project._id}`);
+      setPendingInvitations(invitations);
+    } catch (error) {
+      console.error('Error fetching pending invitations:', error);
+    }
+  };
 
   const handleInviteMember = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inviteEmail.trim()) return;
 
     setLoading(true);
+    setError('');
+    setSuccess('');
+
     try {
-      const updatedMembers = await api.post(`/projects/${project._id}/members`, { email: inviteEmail });
+      await api.post('/invitations/invite', { 
+        projectId: project._id, 
+        email: inviteEmail 
+      });
       
-      // Update the project with new members list
-      const updatedProject = { ...project, members: updatedMembers };
-      onProjectUpdate(updatedProject);
+      setSuccess('Invitation sent successfully! The user will receive an email to join the project.');
       setInviteEmail('');
       setShowInviteModal(false);
-    } catch (error) {
-      console.error('Error inviting member:', error);
+      fetchPendingInvitations(); // Refresh pending invitations
+    } catch (error: any) {
+      setError(error.message || 'Failed to send invitation');
     } finally {
       setLoading(false);
     }
@@ -61,6 +82,55 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
             Invite Member
           </button>
         </div>
+
+        {/* Success/Error Messages */}
+        {success && (
+          <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-6">
+            {success}
+          </div>
+        )}
+        
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
+            {error}
+          </div>
+        )}
+
+        {/* Pending Invitations */}
+        {pendingInvitations.length > 0 && (
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">Pending Invitations ({pendingInvitations.length})</h3>
+            </div>
+            
+            <div className="divide-y divide-gray-200">
+              {pendingInvitations.map((invitation: any) => (
+                <div key={invitation._id} className="px-6 py-4 flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center">
+                      <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-gray-900">{invitation.inviteeEmail}</h4>
+                      <p className="text-gray-600 text-sm">
+                        Invited on {new Date(invitation.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center space-x-3">
+                    <span className="px-3 py-1 bg-yellow-100 text-yellow-800 text-sm rounded-full">Pending</span>
+                    <span className="text-sm text-gray-500">
+                      Expires {new Date(invitation.expiresAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Members List */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">

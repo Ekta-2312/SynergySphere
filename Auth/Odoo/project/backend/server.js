@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const session = require('express-session');
 const passport = require('passport');
+const path = require('path');
 const connectDB = require('./config/db');
 require('./config/passport'); // Passport config
 
@@ -12,6 +13,9 @@ app.use(cors({
   credentials: true
 }));
 app.use(express.json());
+
+// Serve static files for uploads
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Express session
 app.use(
@@ -37,12 +41,16 @@ const projectRoutes = require('./routes/projects');
 const taskRoutes = require('./routes/tasks');
 const discussionRoutes = require('./routes/discussions');
 const notificationRoutes = require('./routes/notifications');
+const invitationRoutes = require('./routes/invitations');
+const userRoutes = require('./routes/users');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/discussions', discussionRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/invitations', invitationRoutes);
+app.use('/api/users', userRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

@@ -121,20 +121,48 @@ router.post('/', jwtAuth, async (req, res) => {
     await task.populate('assignee', 'name email');
     await task.populate('creator', 'name email');
 
-    // Create notification for assignee if different from creator
-    if (assignee && assignee !== req.user._id.toString()) {
-      try {
+    // Create notifications for task creation
+    try {
+      // Notify assignee if different from creator
+      if (assignee && assignee !== req.user._id.toString()) {
         await Notification.create({
           recipient: assignee,
+          sender: req.user._id,
           type: 'task_assigned',
           title: 'New Task Assigned',
           message: `You have been assigned to task: ${title}`,
           relatedProject: projectId,
           relatedTask: task._id
         });
-      } catch (notifError) {
-        console.error('Error creating notification:', notifError);
       }
+
+      // Notify project owner if different from creator and assignee
+      if (project.owner.toString() !== req.user._id.toString() && 
+          project.owner.toString() !== assignee) {
+        await Notification.create({
+          recipient: project.owner,
+          sender: req.user._id,
+          type: 'task_created',
+          title: 'New Task Created',
+          message: `A new task "${title}" has been created in project "${project.title}"`,
+          relatedProject: projectId,
+          relatedTask: task._id
+        });
+      }
+
+      // Notify creator about successful task creation
+      await Notification.create({
+        recipient: req.user._id,
+        sender: req.user._id,
+        type: 'task_created',
+        title: 'Task Created Successfully',
+        message: `You have successfully created the task "${title}"`,
+        relatedProject: projectId,
+        relatedTask: task._id
+      });
+
+    } catch (notifError) {
+      console.error('Error creating task notifications:', notifError);
     }
 
     res.status(201).json(task);
@@ -164,6 +192,11 @@ router.put('/:id', jwtAuth, async (req, res) => {
 
     const { title, description, status, priority, assignee, dueDate, tags, estimatedHours, actualHours } = req.body;
 
+    // Store original values for notification comparison
+    const originalStatus = task.status;
+    const originalAssignee = task.assignee?.toString();
+    const originalPriority = task.priority;
+
     // Update fields
     if (title !== undefined) task.title = title;
     if (description !== undefined) task.description = description;
@@ -186,23 +219,126 @@ router.put('/:id', jwtAuth, async (req, res) => {
     await task.populate('assignee', 'name email');
     await task.populate('creator', 'name email');
 
-    // Create notifications for status changes
-    if (status === 'done') {
-      try {
-        // Notify project owner if task completed by someone else
-        if (project.owner.toString() !== req.user._id.toString()) {
-          await Notification.create({
-            recipient: project.owner,
-            type: 'task_completed',
-            title: 'Task Completed',
-            message: `Task "${task.title}" has been completed`,
-            relatedProject: project._id,
-            relatedTask: task._id
-          });
+    // Create notifications for various changes
+    try {
+      const notificationPromises = [];
+
+      // Notify for status changes
+      if (status !== undefined && status !== originalStatus) {
+        if (status === 'done') {
+          // Notify project owner if task completed by someone else
+          if (project.owner.toString() !== req.user._id.toString()) {
+            notificationPromises.push(Notification.create({
+              recipient: project.owner,
+              type: 'task_completed',
+              title: 'Task Completed',
+              message: `${req.user.name} completed the task "${task.title}"`,
+              relatedProject: project._id,
+              relatedTask: task._id,
+              sender: req.user._id
+            }));
+          }
+
+          // Notify task creator if someone else completed it
+          if (task.creator._id.toString() !== req.user._id.toString()) {
+            notificationPromises.push(Notification.create({
+              recipient: task.creator._id,
+              type: 'task_completed',
+              title: 'Task Completed',
+              message: `${req.user.name} completed your task "${task.title}"`,
+              relatedProject: project._id,
+              relatedTask: task._id,
+              sender: req.user._id
+            }));
+          }
+        } else {
+          // Notify for other status changes
+          const statusLabels = {
+            'todo': 'To Do',
+            'in-progress': 'In Progress',
+            'in-review': 'In Review',
+            'done': 'Done'
+          };
+
+          // Notify assignee if someone else changed status
+          if (task.assignee && task.assignee._id.toString() !== req.user._id.toString()) {
+            notificationPromises.push(Notification.create({
+              recipient: task.assignee._id,
+              type: 'task_status_changed',
+              title: 'Task Status Updated',
+              message: `${req.user.name} changed the status of "${task.title}" to ${statusLabels[status] || status}`,
+              relatedProject: project._id,
+              relatedTask: task._id,
+              sender: req.user._id
+            }));
+          }
         }
-      } catch (notifError) {
-        console.error('Error creating notification:', notifError);
       }
+
+      // Notify for assignee changes
+      if (assignee !== undefined && assignee !== originalAssignee) {
+        if (assignee) {
+          // Notify new assignee
+          if (assignee !== req.user._id.toString()) {
+            notificationPromises.push(Notification.create({
+              recipient: assignee,
+              type: 'task_assigned',
+              title: 'Task Assigned',
+              message: `${req.user.name} assigned you the task "${task.title}"`,
+              relatedProject: project._id,
+              relatedTask: task._id,
+              sender: req.user._id
+            }));
+          }
+        }
+
+        // Notify old assignee if task was reassigned
+        if (originalAssignee && originalAssignee !== req.user._id.toString()) {
+          notificationPromises.push(Notification.create({
+            recipient: originalAssignee,
+            type: 'task_unassigned',
+            title: 'Task Reassigned',
+            message: `The task "${task.title}" has been reassigned by ${req.user.name}`,
+            relatedProject: project._id,
+            relatedTask: task._id,
+            sender: req.user._id
+          }));
+        }
+      }
+
+      // Notify for priority changes
+      if (priority !== undefined && priority !== originalPriority) {
+        const priorityLabels = {
+          'low': 'Low',
+          'medium': 'Medium',
+          'high': 'High',
+          'urgent': 'Urgent'
+        };
+
+        // Notify assignee and project owner
+        const recipients = [project.owner.toString()];
+        if (task.assignee && !recipients.includes(task.assignee._id.toString())) {
+          recipients.push(task.assignee._id.toString());
+        }
+
+        recipients.forEach(recipientId => {
+          if (recipientId !== req.user._id.toString()) {
+            notificationPromises.push(Notification.create({
+              recipient: recipientId,
+              type: 'task_priority_changed',
+              title: 'Task Priority Updated',
+              message: `${req.user.name} changed the priority of "${task.title}" to ${priorityLabels[priority] || priority}`,
+              relatedProject: project._id,
+              relatedTask: task._id,
+              sender: req.user._id
+            }));
+          }
+        });
+      }
+
+      await Promise.all(notificationPromises);
+    } catch (notifError) {
+      console.error('Error creating task update notifications:', notifError);
     }
 
     res.json(task);
@@ -228,6 +364,55 @@ router.delete('/:id', jwtAuth, async (req, res) => {
 
     if (!canDelete) {
       return res.status(403).json({ error: 'Access denied' });
+    }
+
+    // Populate task details for notifications
+    await task.populate('assignee', 'name email');
+    await task.populate('creator', 'name email');
+
+    // Send notifications before deletion
+    try {
+      const notificationPromises = [];
+
+      // Notify assignee if different from deleter
+      if (task.assignee && task.assignee._id.toString() !== req.user._id.toString()) {
+        notificationPromises.push(Notification.create({
+          recipient: task.assignee._id,
+          type: 'task_deleted',
+          title: 'Task Deleted',
+          message: `${req.user.name} deleted the task "${task.title}"`,
+          relatedProject: project._id,
+          sender: req.user._id
+        }));
+      }
+
+      // Notify creator if different from deleter
+      if (task.creator._id.toString() !== req.user._id.toString()) {
+        notificationPromises.push(Notification.create({
+          recipient: task.creator._id,
+          type: 'task_deleted',
+          title: 'Task Deleted',
+          message: `${req.user.name} deleted your task "${task.title}"`,
+          relatedProject: project._id,
+          sender: req.user._id
+        }));
+      }
+
+      // Notify project owner if different from deleter
+      if (project.owner.toString() !== req.user._id.toString()) {
+        notificationPromises.push(Notification.create({
+          recipient: project.owner,
+          type: 'task_deleted',
+          title: 'Task Deleted',
+          message: `${req.user.name} deleted the task "${task.title}" from your project`,
+          relatedProject: project._id,
+          sender: req.user._id
+        }));
+      }
+
+      await Promise.all(notificationPromises);
+    } catch (notifError) {
+      console.error('Error creating task deletion notifications:', notifError);
     }
 
     await Task.findByIdAndDelete(req.params.id);

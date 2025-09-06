@@ -61,17 +61,49 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
   };
 
   const handleTaskUpdate = (updatedTask: Task) => {
-    setTasks(prev => prev.map(task => 
-      task._id === updatedTask._id ? updatedTask : task
-    ));
+    setTasks(prev => {
+      const updatedTasks = prev.map(task => 
+        task._id === updatedTask._id ? updatedTask : task
+      );
+      // Update project stats when tasks change
+      updateProjectStats(updatedTasks);
+      return updatedTasks;
+    });
   };
 
   const handleTaskCreate = (newTask: Task) => {
-    setTasks(prev => [newTask, ...prev]);
+    setTasks(prev => {
+      const updatedTasks = [newTask, ...prev];
+      // Update project stats when tasks change
+      updateProjectStats(updatedTasks);
+      return updatedTasks;
+    });
   };
 
   const handleTaskDelete = (taskId: string) => {
-    setTasks(prev => prev.filter(task => task._id !== taskId));
+    setTasks(prev => {
+      const updatedTasks = prev.filter(task => task._id !== taskId);
+      // Update project stats when tasks change
+      updateProjectStats(updatedTasks);
+      return updatedTasks;
+    });
+  };
+
+  const updateProjectStats = (currentTasks: Task[]) => {
+    const totalTasks = currentTasks.length;
+    const completedTasks = currentTasks.filter(task => task.status === 'done').length;
+    const completionPercentage = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+    const updatedProject = {
+      ...project,
+      taskStats: {
+        total: totalTasks,
+        completed: completedTasks,
+        completionPercentage
+      }
+    };
+
+    onProjectUpdate(updatedProject);
   };
 
   const getTabCounts = () => {

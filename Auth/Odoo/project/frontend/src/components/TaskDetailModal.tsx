@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Project, Task } from '../types/auth';
+import { api } from '../utils/api';
 
 interface TaskDetailModalProps {
   task: Task;
@@ -45,25 +46,14 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
         tags: formData.tags ? formData.tags.split(',').map(tag => tag.trim()) : []
       };
 
-      const response = await fetch(`/api/tasks/${task._id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify(updateData)
-      });
-
-      if (response.ok) {
-        const updatedTask = await response.json();
-        onTaskUpdate(updatedTask);
-        setIsEditing(false);
-      } else {
-        const errorData = await response.json();
-        setError(errorData.error || 'Failed to update task');
-      }
-    } catch (error) {
-      setError('Failed to update task. Please try again.');
+      console.log('Updating task with data:', updateData); // Debug log
+      const updatedTask = await api.put(`/tasks/${task._id}`, updateData);
+      console.log('Task updated successfully:', updatedTask); // Debug log
+      onTaskUpdate(updatedTask);
+      setIsEditing(false);
+    } catch (error: any) {
+      console.error('Task update error:', error); // Debug log
+      setError(error.message || 'Failed to update task. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -74,20 +64,11 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
     setLoading(true);
     try {
-      const response = await fetch(`/api/tasks/${task._id}`, {
-        method: 'DELETE',
-        credentials: 'include'
-      });
-
-      if (response.ok) {
-        onTaskDelete(task._id);
-        onClose();
-      } else {
-        const errorData = await response.json();
-        setError(errorData.error || 'Failed to delete task');
-      }
-    } catch (error) {
-      setError('Failed to delete task. Please try again.');
+      await api.delete(`/tasks/${task._id}`);
+      onTaskDelete(task._id);
+      onClose();
+    } catch (error: any) {
+      setError(error.message || 'Failed to delete task. Please try again.');
     } finally {
       setLoading(false);
     }

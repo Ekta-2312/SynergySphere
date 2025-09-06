@@ -150,6 +150,33 @@ router.put('/:id', jwtAuth, async (req, res) => {
     await discussion.save();
     await discussion.populate('creator', 'name email');
 
+    // Send notifications for discussion updates
+    try {
+      const notificationPromises = [];
+      
+      // Notify project members about discussion update
+      const members = project.members.filter(member => member.toString() !== req.user._id.toString());
+      if (project.owner.toString() !== req.user._id.toString()) {
+        members.push(project.owner);
+      }
+
+      members.forEach(memberId => {
+        notificationPromises.push(Notification.create({
+          recipient: memberId,
+          type: 'discussion_updated',
+          title: 'Discussion Updated',
+          message: `${req.user.name} updated the discussion "${discussion.title}"`,
+          relatedProject: project._id,
+          relatedDiscussion: discussion._id,
+          sender: req.user._id
+        }));
+      });
+
+      await Promise.all(notificationPromises);
+    } catch (notifError) {
+      console.error('Error creating discussion update notifications:', notifError);
+    }
+
     res.json(discussion);
   } catch (error) {
     console.error('Error updating discussion:', error);
@@ -172,6 +199,36 @@ router.delete('/:id', jwtAuth, async (req, res) => {
 
     if (!canDelete) {
       return res.status(403).json({ error: 'Access denied' });
+    }
+
+    // Populate project members for notifications
+    await discussion.populate('project.members');
+
+    // Send notifications before deletion
+    try {
+      const notificationPromises = [];
+      const project = discussion.project;
+      
+      // Notify project members about discussion deletion
+      const members = project.members.filter(member => member.toString() !== req.user._id.toString());
+      if (project.owner.toString() !== req.user._id.toString()) {
+        members.push(project.owner);
+      }
+
+      members.forEach(memberId => {
+        notificationPromises.push(Notification.create({
+          recipient: memberId,
+          type: 'discussion_deleted',
+          title: 'Discussion Deleted',
+          message: `${req.user.name} deleted the discussion "${discussion.title}"`,
+          relatedProject: project._id,
+          sender: req.user._id
+        }));
+      });
+
+      await Promise.all(notificationPromises);
+    } catch (notifError) {
+      console.error('Error creating discussion deletion notifications:', notifError);
     }
 
     await Discussion.findByIdAndDelete(req.params.id);
@@ -216,20 +273,45 @@ router.post('/:id/replies', jwtAuth, async (req, res) => {
     await discussion.save();
     await discussion.populate('replies.author', 'name email');
 
-    // Create notification for discussion creator if different from reply author
-    if (discussion.creator.toString() !== req.user._id.toString()) {
-      try {
-        await Notification.create({
+    // Create notifications for discussion participants
+    try {
+      const notificationPromises = [];
+      const notifiedUsers = new Set();
+
+      // Notify discussion creator if different from reply author
+      if (discussion.creator.toString() !== req.user._id.toString()) {
+        notificationPromises.push(Notification.create({
           recipient: discussion.creator,
           type: 'discussion_reply',
           title: 'New Reply',
-          message: `New reply to your discussion: ${discussion.title}`,
+          message: `${req.user.name} replied to your discussion "${discussion.title}"`,
           relatedProject: project._id,
-          relatedDiscussion: discussion._id
-        });
-      } catch (notifError) {
-        console.error('Error creating notification:', notifError);
+          relatedDiscussion: discussion._id,
+          sender: req.user._id
+        }));
+        notifiedUsers.add(discussion.creator.toString());
       }
+
+      // Notify other reply authors (participants in the discussion)
+      discussion.replies.forEach(existingReply => {
+        const authorId = existingReply.author.toString();
+        if (authorId !== req.user._id.toString() && !notifiedUsers.has(authorId)) {
+          notificationPromises.push(Notification.create({
+            recipient: authorId,
+            type: 'discussion_reply',
+            title: 'New Reply',
+            message: `${req.user.name} replied to the discussion "${discussion.title}"`,
+            relatedProject: project._id,
+            relatedDiscussion: discussion._id,
+            sender: req.user._id
+          }));
+          notifiedUsers.add(authorId);
+        }
+      });
+
+      await Promise.all(notificationPromises);
+    } catch (notifError) {
+      console.error('Error creating reply notifications:', notifError);
     }
 
     res.status(201).json(discussion);

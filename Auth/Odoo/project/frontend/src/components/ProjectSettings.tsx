@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { Project } from '../types/auth';
+import { api } from '../utils/api';
+import { useToast } from '../context/ToastContext';
 
 interface ProjectSettingsProps {
   project: Project;
@@ -12,10 +14,24 @@ export const ProjectSettings: React.FC<ProjectSettingsProps> = ({
   onProjectUpdate,
   onProjectDelete
 }) => {
-  const [formData, setFormData] = useState({
-    name: project.title,
+  const { showSuccess, showError } = useToast();
+  
+  // Ensure project has required fields with defaults
+  const safeProject = {
+    ...project,
+    title: project.title || '',
     description: project.description || '',
-    color: project.color || '#8B5CF6'
+    color: project.color || '#8B5CF6',
+    status: project.status || 'active',
+    dueDate: project.dueDate || ''
+  };
+  
+  const [formData, setFormData] = useState({
+    title: safeProject.title,
+    description: safeProject.description,
+    color: safeProject.color,
+    status: safeProject.status as 'active' | 'completed' | 'on-hold' | 'cancelled',
+    dueDate: safeProject.dueDate ? new Date(safeProject.dueDate).toISOString().split('T')[0] : ''
   });
   const [loading, setLoading] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -25,19 +41,30 @@ export const ProjectSettings: React.FC<ProjectSettingsProps> = ({
     setLoading(true);
     
     try {
-      const response = await fetch(`/api/projects/${project._id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(formData)
-      });
-
-      if (response.ok) {
-        const updatedProject = await response.json();
-        onProjectUpdate(updatedProject);
+      // Validate required fields
+      if (!formData.title?.trim()) {
+        showError('Project title is required');
+        setLoading(false);
+        return;
       }
-    } catch (error) {
+      
+      console.log('Updating project with data:', formData);
+      const updatedProject = await api.put(`/projects/${project._id}`, formData);
+      console.log('Project updated successfully:', updatedProject);
+      
+      // Safely call the update callback
+      try {
+        if (typeof onProjectUpdate === 'function') {
+          onProjectUpdate(updatedProject);
+        }
+      } catch (callbackError) {
+        console.error('Error in onProjectUpdate callback:', callbackError);
+      }
+      
+      showSuccess('Project updated successfully!');
+    } catch (error: any) {
       console.error('Error updating project:', error);
+      showError(error.message || 'Failed to update project');
     } finally {
       setLoading(false);
     }
@@ -45,16 +72,12 @@ export const ProjectSettings: React.FC<ProjectSettingsProps> = ({
 
   const handleDeleteProject = async () => {
     try {
-      const response = await fetch(`/api/projects/${project._id}`, {
-        method: 'DELETE',
-        credentials: 'include'
-      });
-
-      if (response.ok) {
-        onProjectDelete();
-      }
-    } catch (error) {
+      await api.delete(`/projects/${project._id}`);
+      showSuccess('Project deleted successfully');
+      onProjectDelete();
+    } catch (error: any) {
       console.error('Error deleting project:', error);
+      showError(error.message || 'Failed to delete project');
     }
   };
 
@@ -80,8 +103,8 @@ export const ProjectSettings: React.FC<ProjectSettingsProps> = ({
                 </label>
                 <input
                   type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                  value={formData.title}
+                  onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none"
                   required
                 />
@@ -97,6 +120,34 @@ export const ProjectSettings: React.FC<ProjectSettingsProps> = ({
                   rows={3}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none resize-none"
                   placeholder="What is this project about?"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Project Status
+                </label>
+                <select
+                  value={formData.status}
+                  onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value as 'active' | 'completed' | 'on-hold' | 'cancelled' }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none"
+                >
+                  <option value="active">Active</option>
+                  <option value="on-hold">On Hold</option>
+                  <option value="completed">Completed</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Due Date
+                </label>
+                <input
+                  type="date"
+                  value={formData.dueDate}
+                  onChange={(e) => setFormData(prev => ({ ...prev, dueDate: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none"
                 />
               </div>
 

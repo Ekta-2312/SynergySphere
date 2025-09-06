@@ -52,6 +52,10 @@ export interface Project {
   tasks?: Task[];
   status: 'active' | 'completed' | 'on-hold' | 'cancelled';
   color: string;
+  priority?: 'low' | 'medium' | 'high';
+  tags?: string[];
+  projectManager?: User;
+  image?: string;
   dueDate?: string;
   createdAt: string;
   updatedAt: string;

@@ -1,18 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { Project, TaskStats } from '../types/auth';
-import { CreateProjectModal } from './CreateProjectModal';
+import { CreateProjectModalEnhanced } from './CreateProjectModalEnhanced';
 import { api } from '../utils/api';
 
 interface ProjectDashboardProps {
   onProjectSelect: (project: Project) => void;
   stats: TaskStats | null;
   onStatsUpdate: () => void;
+  refreshTrigger?: number;
 }
 
 export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
   onProjectSelect,
   stats,
-  onStatsUpdate
+  onStatsUpdate,
+  refreshTrigger
 }) => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -22,10 +24,18 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
     fetchProjects();
   }, []);
 
+  useEffect(() => {
+    // Refresh projects when refreshTrigger changes
+    if (refreshTrigger !== undefined && refreshTrigger > 0) {
+      fetchProjects();
+    }
+  }, [refreshTrigger]);
+
   const fetchProjects = async () => {
     try {
       setLoading(true);
       const data = await api.get('/projects');
+      console.log('Fetched projects with stats:', data); // Debug log
       setProjects(data);
     } catch (error) {
       console.error('Error fetching projects:', error);
@@ -160,6 +170,22 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
               onClick={() => onProjectSelect(project)}
               className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-all cursor-pointer group"
             >
+              {/* Project Image */}
+              {project.image && (
+                <div className="mb-4 -mx-6 -mt-6">
+                  <img 
+                    src={`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}${project.image}`}
+                    alt={project.title}
+                    className="w-full h-32 object-cover rounded-t-xl"
+                    onError={(e) => {
+                      // Hide image if it fails to load
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none';
+                    }}
+                  />
+                </div>
+              )}
+
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center space-x-3">
                   <div 
@@ -178,6 +204,54 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
               <p className="text-gray-600 text-sm mb-4 line-clamp-2">
                 {project.description}
               </p>
+
+              {/* Tags */}
+              {project.tags && project.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1 mb-3">
+                  {project.tags.slice(0, 3).map((tag, index) => (
+                    <span
+                      key={index}
+                      className="px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-full font-medium"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                  {project.tags.length > 3 && (
+                    <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full font-medium">
+                      +{project.tags.length - 3}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Priority */}
+              {project.priority && (
+                <div className="flex items-center mb-3">
+                  <span className="text-xs text-gray-500 mr-2">Priority:</span>
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    project.priority === 'high' ? 'bg-red-100 text-red-700' :
+                    project.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                    'bg-green-100 text-green-700'
+                  }`}>
+                    {project.priority.charAt(0).toUpperCase() + project.priority.slice(1)}
+                  </span>
+                </div>
+              )}
+
+              {/* Project Manager */}
+              {project.projectManager && (
+                <div className="flex items-center mb-3">
+                  <span className="text-xs text-gray-500 mr-2">Manager:</span>
+                  <div className="flex items-center">
+                    <div className="w-5 h-5 bg-gradient-to-r from-green-500 to-teal-500 rounded-full flex items-center justify-center text-white text-xs font-medium mr-2">
+                      {project.projectManager.name.charAt(0)}
+                    </div>
+                    <span className="text-xs font-medium text-gray-700">
+                      {project.projectManager.name}
+                    </span>
+                  </div>
+                </div>
+              )}
 
               <div className="space-y-3">
                 {/* Progress Bar */}
@@ -256,7 +330,7 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
 
       {/* Create Project Modal */}
       {showCreateModal && (
-        <CreateProjectModal
+        <CreateProjectModalEnhanced
           onClose={() => setShowCreateModal(false)}
           onProjectCreated={handleProjectCreated}
         />

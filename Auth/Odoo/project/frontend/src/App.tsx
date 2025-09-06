@@ -5,6 +5,7 @@ import { Verify } from './components/Verify';
 import { Success } from './components/Success';
 import { AuthCallback } from './components/AuthCallback';
 import { Dashboard } from './components/Dashboard';
+import { InviteAccept } from './components/InviteAccept';
 import { useAuth } from './hooks/useAuth';
 import { ToastProvider } from './context/ToastContext';
 
@@ -22,6 +23,7 @@ const App = () => {
         <Route path="/verify" element={<Verify />} />
         <Route path="/success" element={<Success />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
+        <Route path="/invite/:token" element={<InviteAccept />} />
         <Route
           path="/"
           element={

@@ -28,6 +28,22 @@ const ProjectSchema = new mongoose.Schema({
     type: String, 
     default: '#4A00E0' 
   },
+  priority: {
+    type: String,
+    enum: ['low', 'medium', 'high'],
+    default: 'medium'
+  },
+  tags: [{
+    type: String,
+    trim: true
+  }],
+  projectManager: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Register'
+  },
+  image: {
+    type: String // URL or filename for uploaded image
+  },
   dueDate: { 
     type: Date 
   },

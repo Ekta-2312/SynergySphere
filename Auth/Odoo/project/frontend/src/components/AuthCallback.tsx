@@ -10,6 +10,7 @@ export const AuthCallback: React.FC = () => {
     const token = searchParams.get('token');
     const userData = searchParams.get('user');
     const error = searchParams.get('error');
+    const invitation = searchParams.get('invitation');
 
     if (error) {
       // Handle authentication error
@@ -26,8 +27,15 @@ export const AuthCallback: React.FC = () => {
         localStorage.setItem('accessToken', token);
         localStorage.setItem('user', JSON.stringify(user));
         
-        // Redirect to dashboard
-        navigate('/');
+        // Check if this was for an invitation
+        if (invitation === 'accepted') {
+          // Show success message and redirect to dashboard
+          alert('Invitation accepted successfully! Welcome to the project.');
+          navigate('/dashboard');
+        } else {
+          // Regular authentication - redirect to home
+          navigate('/');
+        }
       } catch (err) {
         console.error('Error processing auth callback:', err);
         navigate('/login?error=invalid_response');
@@ -42,7 +50,12 @@ export const AuthCallback: React.FC = () => {
     <div className="min-h-screen flex items-center justify-center">
       <div className="text-center">
         <LoadingSpinner />
-        <p className="mt-4 text-gray-600">Completing authentication...</p>
+        <p className="mt-4 text-gray-600">
+          {searchParams.get('invitation') === 'accepted' 
+            ? 'Joining your project...' 
+            : 'Completing authentication...'
+          }
+        </p>
       </div>
     </div>
   );

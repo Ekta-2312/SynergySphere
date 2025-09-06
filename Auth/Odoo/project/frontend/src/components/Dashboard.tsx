@@ -18,6 +18,7 @@ export const Dashboard = () => {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [stats, setStats] = useState<TaskStats | null>(null);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   useEffect(() => {
     // Check if user is authenticated before making API calls
@@ -64,6 +65,8 @@ export const Dashboard = () => {
   const handleBackToDashboard = () => {
     setSelectedProject(null);
     setActiveTab('dashboard');
+    // Trigger refresh of project list to update progress bars
+    setRefreshTrigger(prev => prev + 1);
   };
 
   const handleLogout = () => {
@@ -75,7 +78,14 @@ export const Dashboard = () => {
       <ProjectDetail 
         project={selectedProject} 
         onBack={handleBackToDashboard}
-        onProjectUpdate={(updatedProject: Project) => setSelectedProject(updatedProject)}
+        onProjectUpdate={(updatedProject: Project) => {
+          try {
+            console.log('Dashboard: Updating selected project with:', updatedProject);
+            setSelectedProject(updatedProject);
+          } catch (error) {
+            console.error('Dashboard: Error updating selected project:', error);
+          }
+        }}
       />
     );
   }
@@ -233,6 +243,7 @@ export const Dashboard = () => {
               onProjectSelect={handleProjectSelect} 
               stats={stats}
               onStatsUpdate={fetchStats}
+              refreshTrigger={refreshTrigger}
             />
           )}
           {activeTab === 'tasks' && <MyTasks />}

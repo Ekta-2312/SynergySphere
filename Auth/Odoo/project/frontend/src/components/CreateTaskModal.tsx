@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Project, Task } from '../types/auth';
+import { api } from '../utils/api';
 
 interface CreateTaskModalProps {
   project: Project;
@@ -37,31 +38,21 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
       const taskData = {
         title: formData.title,
         description: formData.description,
-        projectId: project._id,
-        assigneeId: formData.assigneeId || null,
+        project: project._id,
+        assignee: formData.assigneeId || null,
         priority: formData.priority,
         dueDate: formData.dueDate || null,
         tags: formData.tags ? formData.tags.split(',').map(tag => tag.trim()) : []
       };
 
-      const response = await fetch('/api/tasks', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify(taskData)
-      });
-
-      if (response.ok) {
-        const newTask = await response.json();
-        onTaskCreated(newTask);
-      } else {
-        const errorData = await response.json();
-        setError(errorData.error || 'Failed to create task');
-      }
-    } catch (error) {
-      setError('Failed to create task. Please try again.');
+      console.log('Creating task with data:', taskData); // Debug log
+      const newTask = await api.post('/tasks', taskData);
+      console.log('Task created successfully:', newTask); // Debug log
+      onTaskCreated(newTask);
+      onClose(); // Close the modal after successful creation
+    } catch (error: any) {
+      console.error('Task creation error:', error); // Debug log
+      setError(error.message || 'Failed to create task. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -139,11 +130,18 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-colors"
             >
               <option value="">Select assignee (optional)</option>
-              {project.members.map((member) => (
-                <option key={member._id} value={member._id}>
-                  {member.name}
-                </option>
-              ))}
+              {/* Project Owner */}
+              <option key={project.owner._id} value={project.owner._id}>
+                {project.owner.name} (Owner)
+              </option>
+              {/* Project Members */}
+              {project.members && project.members
+                .filter(member => member._id !== project.owner._id) // Avoid duplicate owner
+                .map((member) => (
+                  <option key={member._id} value={member._id}>
+                    {member.name}
+                  </option>
+                ))}
             </select>
           </div>
 

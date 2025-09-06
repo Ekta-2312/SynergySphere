@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Project, Task, User } from '../types/auth';
-import { CreateTaskModal } from './CreateTaskModal';
+import { CreateTaskModalEnhanced } from './CreateTaskModalEnhanced';
 import { TaskDetailModal } from './TaskDetailModal';
+import { api } from '../utils/api';
 
 interface TaskBoardProps {
   project: Project;
@@ -48,6 +49,26 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
     e.dataTransfer.effectAllowed = 'move';
   };
 
+  const handleQuickStatusChange = async (task: Task, newStatus: string) => {
+    if (task.status === newStatus) return;
+
+    console.log('Quick status change:', { taskId: task._id, from: task.status, to: newStatus }); // Debug log
+
+    try {
+      const updatedTask = await api.put(`/tasks/${task._id}`, { status: newStatus });
+      console.log('Task status updated successfully:', updatedTask); // Debug log
+      onTaskUpdate(updatedTask);
+    } catch (error) {
+      console.error('Error updating task status:', error);
+    }
+  };
+
+  const getNextStatus = (currentStatus: string) => {
+    const statuses = ['todo', 'in-progress', 'in-review', 'done'];
+    const currentIndex = statuses.indexOf(currentStatus);
+    return currentIndex < statuses.length - 1 ? statuses[currentIndex + 1] : currentStatus;
+  };
+
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
@@ -61,20 +82,12 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
       return;
     }
 
-    try {
-      const response = await fetch(`/api/tasks/${draggedTask._id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({ status: newStatus })
-      });
+    console.log('Updating task status:', { taskId: draggedTask._id, from: draggedTask.status, to: newStatus }); // Debug log
 
-      if (response.ok) {
-        const updatedTask = await response.json();
-        onTaskUpdate(updatedTask);
-      }
+    try {
+      const updatedTask = await api.put(`/tasks/${draggedTask._id}`, { status: newStatus });
+      console.log('Task updated successfully:', updatedTask); // Debug log
+      onTaskUpdate(updatedTask);
     } catch (error) {
       console.error('Error updating task status:', error);
     }
@@ -206,6 +219,24 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
                         )}
                       </div>
                     )}
+
+                    {/* Quick Status Action */}
+                    {task.status !== 'done' && (
+                      <div className="mt-3 pt-2 border-t border-gray-100">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation(); // Prevent opening task detail modal
+                            const nextStatus = getNextStatus(task.status);
+                            if (nextStatus !== task.status) {
+                              handleQuickStatusChange(task, nextStatus);
+                            }
+                          }}
+                          className="w-full text-xs bg-purple-50 text-purple-600 hover:bg-purple-100 px-2 py-1 rounded transition-colors"
+                        >
+                          Move to {getNextStatus(task.status).replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ))}
 
@@ -225,7 +256,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
 
       {/* Modals */}
       {showCreateModal && (
-        <CreateTaskModal
+        <CreateTaskModalEnhanced
           project={project}
           onClose={() => setShowCreateModal(false)}
           onTaskCreated={onTaskCreate}
